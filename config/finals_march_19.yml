@@ -42,11 +42,6 @@ config:
   roboy_answer_sanity: 1000
 
 ---
-module: roboyqa
-config:
-  roboy_node_id: 356
-
----
 module: akinator
 config:
   certainty_percentage: 90
