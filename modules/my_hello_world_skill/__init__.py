@@ -8,8 +8,6 @@ with rs.Module(name="fourtytwo"):
     @rs.state(read=rawio.prop_in, signal=meaning_of_life_signal)
     def meaning_of_life_state(ctx):
         text = ctx[rawio.prop_in]
-        if not text:
-            return rs.Resign()
         if "meaning" in text and "life" in text:
             return rs.Emit()
 
