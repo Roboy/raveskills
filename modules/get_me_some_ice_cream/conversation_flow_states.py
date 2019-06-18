@@ -1,10 +1,10 @@
 import ravestate as rs
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
+
 from get_me_some_ice_cream import prop_flavor, prop_scoops
 
-
-prop_flavor_scoop_tuple_list = None
+prop_flavor_scoop_tuple_list = rs.Property(name="flavor_scoop_tuple_list")
 
 
 @rs.state(
@@ -20,8 +20,8 @@ def prompt_order(ctx: rs.ContextWrapper):
 def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
     # TODO fill property prop_flavor_scoop_tuple_list and possibly ask for missing information
     if prop_flavor is None:
-        pass
+        ctx[rawio.prop_out] = "I heard you ordered the flavor {}".format(prop_flavor)
     elif prop_scoops is None:
-        pass
+        ctx[rawio.prop_out] = "I heard you ordered {} scoops".format(prop_scoops)
     else:
-        pass
+        ctx[rawio.prop_out] = "Hmmm... this shouldn't happen..."

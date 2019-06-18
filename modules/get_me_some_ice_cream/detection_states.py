@@ -2,8 +2,8 @@ import ravestate as rs
 import ravestate_nlp as nlp
 
 
-prop_flavor = None
-prop_scoops = None
+prop_flavor = rs.Property(name="flavor")
+prop_scoops = rs.Property(name="scoops")
 
 
 @rs.state(
@@ -11,10 +11,10 @@ prop_scoops = None
     read=nlp.prop_tokens)
 def detect_flavor(ctx: rs.ContextWrapper):
     tokens = ctx[nlp.prop_tokens]
-    if "chocolate" in tokens or "vanilla" in tokens:
-        # TODO fill property flavor
-        pass
-
+    if "chocolate" in tokens:
+        prop_flavor.write("chocolate")
+    if "vanilla" in tokens:
+        prop_flavor.write("vanilla")
 
 @rs.state(
     cond=nlp.prop_tokens.changed(),
