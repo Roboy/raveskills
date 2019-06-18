@@ -8,6 +8,6 @@ with rs.Module(name="Luigi") as mod:
     mod.add(prop_flavor)
     mod.add(prop_flavor_scoop_tuple_list)
     mod.add(detect_flavor)
-    # mod.add(detect_scoops)
+    mod.add(detect_scoops)
     mod.add(prompt_order)
     mod.add(check_scoops_flavor_combined)
