@@ -18,11 +18,13 @@ def prompt_order(ctx: rs.ContextWrapper):
     cond=prop_flavor.changed() | prop_scoops.changed(),
     write=rawio.prop_out)
 def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
-    print("IN CHECK SCOOPS FLAVOR COMBINED")
     # TODO fill property prop_flavor_scoop_tuple_list and possibly ask for missing information
-    if prop_flavor is None:
-        ctx[rawio.prop_out] = "I heard you ordered the flavor {}".format(prop_flavor)
-    elif prop_scoops is None:
-        ctx[rawio.prop_out] = "I heard you ordered {} scoops".format(prop_scoops)
+    if prop_flavor is not None and prop_scoops is not None:
+        ctx[rawio.prop_out] = "I heard you ordered {} scoops of the flavor {}".format(prop_scoops.read(),
+                                                                                      prop_flavor.read())
+    elif prop_flavor is not None:
+        ctx[rawio.prop_out] = "I heard you ordered the flavor {}".format(prop_flavor.read())
+    elif prop_scoops is not None:
+        ctx[rawio.prop_out] = "I heard you ordered {} scoops".format(prop_scoops.read())
     else:
         ctx[rawio.prop_out] = "Hmmm... this shouldn't happen..."
