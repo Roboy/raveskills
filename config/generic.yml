@@ -21,7 +21,7 @@ config:
     #- ravestate_conio
     - ravestate_fillers
     #- ravestate_wildtalk
-    - ravestate_hibye
+    #- ravestate_hibye
     #- ravestate_genqa
     #- ravestate_roboyqa
     #- ravestate_persqa

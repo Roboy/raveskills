@@ -2,26 +2,34 @@ import ravestate as rs
 import ravestate_nlp as nlp
 
 
-prop_flavor = rs.Property(name="flavor")
-prop_scoops = rs.Property(name="scoops")
+prop_flavor = rs.Property(name="flavor", allow_write=True, always_signal_changed=True)
+prop_scoops = rs.Property(name="scoops", allow_write=True, always_signal_changed=True)
 
 
 @rs.state(
     cond=nlp.prop_tokens.changed(),
-    read=nlp.prop_tokens)
+    read=nlp.prop_tokens,
+    write=prop_flavor)
 def detect_flavor(ctx: rs.ContextWrapper):
+    print("IN DETECT FLAVOR")
     tokens = ctx[nlp.prop_tokens]
     if "chocolate" in tokens:
+        print("CHOCOLATE")
         prop_flavor.write("chocolate")
     if "vanilla" in tokens:
+        print("VANILLA")
         prop_flavor.write("vanilla")
 
-@rs.state(
-    cond=nlp.prop_tokens.changed(),
-    read=nlp.prop_tokens)
-def detect_scoops(ctx: rs.ContextWrapper):
-    # TODO fill property scoops, maybe change cond to react on other things?
-    pass
+
+# @rs.state(
+#     cond=nlp.prop_tokens.changed(),
+#     read=nlp.prop_tokens,
+#     write=prop_scoops
+# )
+# def detect_scoops(ctx: rs.ContextWrapper):
+#     # TODO fill property scoops, maybe change cond to react on other things?
+#     pass
+
 
 
 # sig_flavor_detected = rs.Signal(name="flavor detected")
