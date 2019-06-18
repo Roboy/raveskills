@@ -28,6 +28,10 @@ def greet_familiar_customer(ctx):
     cond=nlp.prop_tokens.changed(),
     read=(nlp.prop_tokens, nlp.prop_triples),
     signal=sig_farewell
+
+
+
+
 )
 def farewell(ctx):
     tokens = ctx[nlp.prop_tokens]

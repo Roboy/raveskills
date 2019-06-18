@@ -1,5 +1,5 @@
-from get_me_some_ice_cream.detection_states import *
-from get_me_some_ice_cream.conversation_flow_states import *
+from get_me_some_ice_cream.states.detection import *
+from get_me_some_ice_cream.states.conversation_flow import *
 
 with rs.Module(name="Luigi") as mod:
 
