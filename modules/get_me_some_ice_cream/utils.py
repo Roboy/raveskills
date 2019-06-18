@@ -4,8 +4,8 @@ def insert_user_name(text, username):
 
 def extract_scoops(prop_ner):
     for entity, NE in prop_ner:
-        if NE == "CARDINAL" and isinstance(entity, int):
-            return entity
+        if NE == "CARDINAL" and entity.isdigit():
+            return int(entity)
         elif NE == "CARDINAL" and isinstance(entity, str):
             # we assume that no one orders more than 9 scoops of a flavor
             word2num = {
