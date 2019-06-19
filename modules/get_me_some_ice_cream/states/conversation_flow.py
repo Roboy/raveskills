@@ -8,10 +8,10 @@ prop_flavor_scoop_tuple_list = rs.Property(name="flavor_scoop_tuple_list", allow
 
 
 @rs.state(
-    cond=interloc.prop_all.pushed(),
+    cond=interloc.prop_all.pushed().detached().min_age(2),
     write=rawio.prop_out)
 def prompt_order(ctx: rs.ContextWrapper):
-    ctx[rawio.prop_out] = "Hey, want some ice cream?"
+    ctx[rawio.prop_out] = "Want some ice cream?"
 
 
 @rs.state(
