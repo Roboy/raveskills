@@ -20,3 +20,24 @@ def extract_scoops(prop_ner):
                 "nine": 9,
             }
             return word2num[entity]
+
+
+def get_complete_order_and_cost(flavor_scoop_tuple_list, cost_per_scoop):
+    order = ""
+    cost = 0
+    if len(flavor_scoop_tuple_list) == 1:
+        order = "{scoops} scoops of {flavor}".format(flavor=flavor_scoop_tuple_list[0][0],
+                                                     scoops=flavor_scoop_tuple_list[0][1])
+        cost = cost_per_scoop * flavor_scoop_tuple_list[0][1]
+    else:
+        order_length = len(flavor_scoop_tuple_list)
+        for i in range(0, order_length - 1):
+            order += "{scoops} scoops of {flavor}, ".format(flavor=flavor_scoop_tuple_list[i][0],
+                                                                   scoops=flavor_scoop_tuple_list[i][1])
+            cost += cost_per_scoop * flavor_scoop_tuple_list[i][1]
+        order = order[:len(order)-2] + " "
+        order += "and {scoops} scoops of {flavor}".format(flavor=flavor_scoop_tuple_list[order_length-1][0],
+                                                                   scoops=flavor_scoop_tuple_list[order_length-1][1])
+        cost += cost_per_scoop * flavor_scoop_tuple_list[order_length-1][1]
+    return order, cost
+

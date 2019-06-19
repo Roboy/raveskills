@@ -70,4 +70,3 @@ def detect_scoops(ctx: rs.ContextWrapper):
     if detected_scoops is not None:
         prop_scoops.write(detected_scoops)
         return rs.Emit()
-
