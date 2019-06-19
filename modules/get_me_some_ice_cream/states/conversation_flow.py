@@ -31,3 +31,11 @@ def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
         ctx[rawio.prop_out] = "I heard you ordered {} scoops. What flavor do you want?".format(prop_scoops.read())
     else:
         ctx[rawio.prop_out] = "Hmmm... this shouldn't happen..."
+
+
+@rs.state(
+    cond=interloc.prop_all.popped())
+def finish_order():
+    prop_flavor_scoop_tuple_list.write(None)
+    prop_flavor.write(None)
+    prop_scoops.write(None)
