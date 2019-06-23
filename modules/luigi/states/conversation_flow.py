@@ -3,14 +3,13 @@ import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_nlp as nlp
 
-from get_me_some_ice_cream.states.detection import prop_flavor, prop_scoops
-from get_me_some_ice_cream.utils import get_complete_order_and_cost
+from luigi.states.detection import prop_flavor, prop_scoops
 
 cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
 
 sig_start_order_question = rs.Signal("start_order_question")
 sig_finish_order_question = rs.Signal("finish_order_question")
-sig_finished_payment = rs.Signal("finished payment")
+sig_finished_payment = rs.Signal("finished_payment")
 
 prop_flavor_scoop_tuple_list = rs.Property(name="flavor_scoop_tuple_list", default_value=[], allow_write=True,
                                            allow_read=True, always_signal_changed=True)
@@ -31,20 +30,20 @@ def prompt_order(ctx: rs.ContextWrapper):
     emit_detached=True,
     write=rawio.prop_out)
 def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
-    if prop_flavor.read() is not None and prop_scoops.read() is not None:
+    if prop_flavor.read() and prop_scoops.read():
         ctx[rawio.prop_out] = "{scoops} scoops of the {flavor} will be delicious! is that all?".\
             format(scoops=prop_scoops.read(), flavor=prop_flavor.read())
         prop_flavor_scoop_tuple_list.write(prop_flavor_scoop_tuple_list.read()
                                            + [(prop_flavor.read(), prop_scoops.read())])
         prop_flavor.write(None)
         prop_scoops.write(None)
-    elif prop_flavor.read() is not None:
+        return rs.Emit()
+    elif prop_flavor.read():
         ctx[rawio.prop_out] = "{flavor} is also one of my favorites! can you also tell me how many scoops you want?".\
             format(flavor=prop_flavor.read())
-    elif prop_scoops.read() is not None:
+    elif prop_scoops.read():
         ctx[rawio.prop_out] = "it would be helpful if you also told me what flavor you want {scoops} scoops of...".\
             format(scoops=prop_scoops.read())
-    return rs.Emit()
 
 
 @rs.state(
@@ -55,13 +54,13 @@ def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
     signal=sig_finished_payment)
 def analyse_payment_suggestion_answer(ctx: rs.ContextWrapper):
     if ctx[nlp.prop_yesno] == "yes":
-        complete_order, complete_cost = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read(), cost_per_scoop)
+        complete_order, complete_cost = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
         ctx[rawio.prop_out] = "alrighty, payment time then! you owe me {cost} roboy coins for the {order}.".\
             format(cost=complete_cost, order=complete_order)
         # TODO add different payment options once we have them
+        return rs.Emit()  # TODO signal should only be emitted once payment is completed
     elif ctx[nlp.prop_yesno] == "no":
         ctx[rawio.prop_out] = "wow, you are quite hungry. then tell me what other ice cream you want!"
-    return rs.Emit()  # TODO signal should only be emitted once payment is completed
 
 
 @rs.state(
@@ -69,7 +68,7 @@ def analyse_payment_suggestion_answer(ctx: rs.ContextWrapper):
     write=rawio.prop_out)
 def after_payment(ctx: rs.ContextWrapper):
     ctx[rawio.prop_out] = "thanks for buying ice cream - enjoy and come back anytime you like!"
-    prop_flavor_scoop_tuple_list.write(None)
+    prop_flavor_scoop_tuple_list.write([])
     prop_flavor.write(None)
     prop_scoops.write(None)
 
@@ -92,3 +91,25 @@ def analyse_ice_cream_suggestion_answer(ctx: rs.ContextWrapper):
         # TODO list flavors that we have?
     elif ctx[nlp.prop_yesno] == "no":
         ctx[rawio.prop_out] = "hmm okay... well, what else can I do for you then?"
+
+
+def get_complete_order_and_cost(flavor_scoop_tuple_list):
+    order = ""
+    cost = 0
+    if len(flavor_scoop_tuple_list) == 1:
+        order = "{scoops} scoops of {flavor}".format(flavor=flavor_scoop_tuple_list[0][0],
+                                                     scoops=flavor_scoop_tuple_list[0][1])
+        cost = cost_per_scoop * flavor_scoop_tuple_list[0][1]
+    else:
+        order_length = len(flavor_scoop_tuple_list)
+        for i in range(0, order_length - 1):
+            order += "{scoops} scoops of {flavor}, ".format(flavor=flavor_scoop_tuple_list[i][0],
+                                                            scoops=flavor_scoop_tuple_list[i][1])
+            cost += cost_per_scoop * flavor_scoop_tuple_list[i][1]
+        order = order[:len(order)-2] + " "
+        order += "and {scoops} scoops of {flavor}".format(flavor=flavor_scoop_tuple_list[order_length-1][0],
+                                                          scoops=flavor_scoop_tuple_list[order_length-1][1])
+        cost += cost_per_scoop * flavor_scoop_tuple_list[order_length-1][1]
+    return order, cost
+
+

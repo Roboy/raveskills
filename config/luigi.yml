@@ -18,14 +18,9 @@ module: core
 config:
   tickrate: 10
   import:
-    - ravestate_conio
     - ravestate_fillers
-    - ravestate_wildtalk
     - ravestate_hibye
-    - ravestate_genqa
-    - ravestate_roboyqa
-    - ravestate_persqa
-    #- ravestate_akinator
+    - luigi
   ros2-node-name: "ros2-node-name"
 
 ---

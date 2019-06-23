@@ -1,5 +1,5 @@
 import ravestate as rs
-import get_me_some_ice_cream.states as states
+import luigi.states as states
 
 with rs.Module(name="Luigi") as mod:
 
