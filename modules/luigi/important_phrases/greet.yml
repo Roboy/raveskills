@@ -1,0 +1,5 @@
+type: phrases
+name: "greet_familiar_customer"
+opts:
+- "Hello $$! How is it going?"
+- "Welcome back $$! Would you like to have an ice cream?"
