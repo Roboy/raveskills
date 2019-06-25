@@ -5,7 +5,7 @@ import ravestate_rawio as rawio
 
 cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
 
-with rs.Module(name="Luigi") as mod:
+with rs.Module(name="Luigi"):
 
     # -------------------- properties -------------------- #
 
@@ -19,14 +19,13 @@ with rs.Module(name="Luigi") as mod:
     sig_start_order_question = rs.Signal("start_order_question")
     sig_finish_order_question = rs.Signal("finish_order_question")
     sig_finished_payment = rs.Signal("finished_payment")
+    sig_yesno_detected = rs.Signal("yesno")
 
     # -------------------- states: detection -------------------- #
 
     @rs.state(
-        cond=nlp.prop_tokens.changed(),
         read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas),
-        write=prop_flavor,
-        signal=prop_flavor.changed_signal)
+        write=prop_flavor)
     def detect_flavor(ctx: rs.ContextWrapper):
         ice_cream_order = False
         tokens = ctx[nlp.prop_tokens]
@@ -71,20 +70,24 @@ with rs.Module(name="Luigi") as mod:
             # TODO this part needs to be changed when ordering multiple flavors at the same time (possibly with scoops)
             if "chocolate" in tokens:
                 ctx[prop_flavor] = "chocolate"
-                return rs.Emit()
             if "vanilla" in tokens:
                 ctx[prop_flavor] = "vanilla"
-                return rs.Emit()
 
     @rs.state(
         cond=nlp.prop_ner.changed(),
         read=nlp.prop_ner,
-        write=prop_scoops,
-        signal=prop_scoops.changed_signal)
+        write=prop_scoops)
     def detect_scoops(ctx: rs.ContextWrapper):
         detected_scoops = extract_scoops(ctx[nlp.prop_ner])
-        if detected_scoops is not None:
+        if detected_scoops:
             ctx[prop_scoops] = detected_scoops
+
+    @rs.state(
+        read=nlp.prop_yesno,
+        signal=sig_yesno_detected)
+    def yesno(ctx: rs.ContextWrapper):
+        yesno = ctx[nlp.prop_yesno]
+        if yesno == "yes" or yesno == "no":
             return rs.Emit()
 
 
@@ -93,13 +96,14 @@ with rs.Module(name="Luigi") as mod:
     @rs.state(
         cond=interloc.prop_all.pushed().detached().min_age(2),
         write=rawio.prop_out,
-        signal=sig_start_order_question)
+        signal=sig_start_order_question,
+        emit_detached=True)
     def prompt_order(ctx: rs.ContextWrapper):
         ctx[rawio.prop_out] = "guess what! i'm selling ice cream. want some?"
         return rs.Emit()
 
     @rs.state(
-        cond=sig_start_order_question & nlp.prop_yesno.changed(),
+        cond=sig_start_order_question.max_age(-1) & sig_yesno_detected,
         read=nlp.prop_yesno,
         write=rawio.prop_out)
     def analyse_ice_cream_suggestion_answer(ctx: rs.ContextWrapper):
@@ -110,14 +114,14 @@ with rs.Module(name="Luigi") as mod:
             ctx[rawio.prop_out] = "hmm okay... well, what else can I do for you then?"
 
     @rs.state(
-        cond=prop_flavor.changed() | prop_scoops.changed(),
-        signal=sig_finish_order_question,
-        emit_detached=True,
-        write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavor, prop_scoops))
+       cond=prop_flavor.changed().detached() | prop_scoops.changed().detached(),
+       signal=sig_finish_order_question,
+       emit_detached=True,
+       write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavor, prop_scoops))
     def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
         if prop_flavor.read() and prop_scoops.read():
             ctx[rawio.prop_out] = "{scoops} scoops of the {flavor} will be delicious! is that all?". \
-                format(scoops=ctx[prop_scoops], flavor=prop_flavor.read())
+                format(scoops=prop_scoops.read(), flavor=prop_flavor.read())
             ctx[prop_flavor_scoop_tuple_list] = prop_flavor_scoop_tuple_list.read() + [(prop_flavor.read(),
                                                                                         prop_scoops.read())]
             ctx[prop_flavor] = None
@@ -131,11 +135,11 @@ with rs.Module(name="Luigi") as mod:
                                   "of...".format(scoops=prop_scoops.read())
 
     @rs.state(
-        cond=sig_finish_order_question & nlp.prop_yesno.changed().max_age(10),
-        read=nlp.prop_yesno,
-        write=rawio.prop_out,
-        emit_detached=True,
-        signal=sig_finished_payment)
+       cond=sig_finish_order_question.max_age(-1) & sig_yesno_detected,
+       read=nlp.prop_yesno,
+       write=rawio.prop_out,
+       emit_detached=True,
+       signal=sig_finished_payment)
     def analyse_payment_suggestion_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno] == "yes":
             complete_order, complete_cost = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
@@ -147,8 +151,8 @@ with rs.Module(name="Luigi") as mod:
             ctx[rawio.prop_out] = "wow, you are quite hungry. then tell me what other ice cream you want!"
 
     @rs.state(
-        cond=sig_finished_payment,
-        write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavor, prop_scoops))
+       cond=sig_finished_payment,
+       write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavor, prop_scoops))
     def after_payment(ctx: rs.ContextWrapper):
         ctx[rawio.prop_out] = "thanks for buying ice cream - enjoy and come back anytime you like!"
         ctx[prop_flavor_scoop_tuple_list] = []
@@ -156,7 +160,7 @@ with rs.Module(name="Luigi") as mod:
         ctx[prop_scoops] = None
 
     @rs.state(
-        cond=interloc.prop_all.popped())
+       cond=interloc.prop_all.popped())
     def customer_left(ctx: rs.ContextWrapper):
         ctx[prop_flavor_scoop_tuple_list] = []
         ctx[prop_flavor] = None
