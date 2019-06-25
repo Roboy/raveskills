@@ -20,6 +20,7 @@ config:
   import:
     - ravestate_fillers
     - ravestate_hibye
+    - luigi
   ros2-node-name: "ros2-node-name"
 
 ---
