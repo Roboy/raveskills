@@ -2,6 +2,7 @@ import ravestate as rs
 import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
+import ravestate_idle as idle
 
 cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
 
@@ -12,7 +13,8 @@ with rs.Module(name="Luigi"):
     prop_flavors = rs.Property(name="flavor", always_signal_changed=False, default_value=[], allow_read=True, allow_write=True)
     prop_scoops = rs.Property(name="scoops", always_signal_changed=False, default_value=[], allow_read=True, allow_write=True)
     prop_flavor_scoop_tuple_list = rs.Property(name="flavor_scoop_tuple_list", default_value=[], allow_write=True,
-                                               allow_read=True, always_signal_changed=True)
+                                               allow_read=True, always_signal_changed=False)
+    prop_suggested_ice_cream = rs.Property(name="suggested_ice_cream", always_signal_changed=False, default_value=False, allow_read=True, allow_write=True)
 
     # -------------------- signals -------------------- #
 
@@ -28,11 +30,23 @@ with rs.Module(name="Luigi"):
         cond=nlp.sig_is_question,
         read=nlp.prop_tokens,
         write=rawio.prop_out)
-    def detect_flavor_question(ctx: rs.ContextWrapper):
+    def detect_specific_flavor_question(ctx: rs.ContextWrapper):
         tokens = ctx[nlp.prop_tokens]
         if "chocolate" in tokens or "vanilla" in tokens:
             # TODO deal with question
-            ctx[rawio.prop_out] = "You asked a question about flavors..."
+            ctx[rawio.prop_out] = "you asked a question about some flavor..."
+        else:
+            return rs.Resign()
+
+    @rs.state(
+        cond=nlp.sig_is_question,
+        read=nlp.prop_lemmas,
+        write=rawio.prop_out)
+    def detect_flavor_question(ctx: rs.ContextWrapper):
+        lemmas = ctx[nlp.prop_lemmas]
+        if "flavor" in lemmas or "kind" in lemmas:
+            ctx[rawio.prop_out] = "i'm selling chocolate and vanilla today, both are pretty yummy... " \
+                                  "gonna be hard to choose for you"
 
     @rs.state(
         cond=nlp.prop_tokens.changed(),
@@ -53,7 +67,13 @@ with rs.Module(name="Luigi"):
             # this case holds when the customer simply states the number of scoops
             ice_cream_order = True
         elif extract_scoops(ner) and triples[0].match_either_lemma(pred={"scoop", "ball", "servings"}):
-            # this case holds when the customer states the number of scoops
+            # this case holds when the customer states the number of scoops using
+            # "three scoops please"
+            # "2 servings of chocolate"
+            ice_cream_order = True
+        elif extract_scoops(ner) and triples[0].match_either_lemma(pred={"please", "each"}):
+            # this case holds when the customer states the number of scoops as follows
+            # "one each"
             ice_cream_order = True
         elif triples[0].match_either_lemma(subj={"i"}) and \
                 triples[0].match_either_lemma(pred={"want", "like", "desire", "have", "decide", "get",
@@ -116,13 +136,17 @@ with rs.Module(name="Luigi"):
     # -------------------- states: conversation flow -------------------- #
 
     @rs.state(
-        cond=interloc.prop_all.pushed().detached().min_age(2),
-        write=rawio.prop_out,
+        cond=interloc.prop_all.pushed().detached().min_age(2) | idle.sig_bored.min_age(1),
+        read=prop_suggested_ice_cream,
+        write=(rawio.prop_out, prop_suggested_ice_cream),
         signal=sig_start_order_question,
         emit_detached=True)
     def prompt_order(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = "guess what! i'm selling ice cream. want some?"
-        return rs.Emit()
+        has_already_asked = ctx[prop_suggested_ice_cream]
+        if not has_already_asked:
+            ctx[rawio.prop_out] = "guess what! i'm selling ice cream. want some?"
+            ctx[prop_suggested_ice_cream] = True
+            return rs.Emit()
 
     @rs.state(
         cond=sig_start_order_question.max_age(-1) & sig_yesno_detected,
@@ -134,7 +158,6 @@ with rs.Module(name="Luigi"):
             # TODO list flavors that we have?
         elif ctx[nlp.prop_yesno] == "no":
             ctx[rawio.prop_out] = "hmm okay... well, what else can I do for you then?"
-
 
     @rs.state(
         cond=sig_changed_flavor_or_scoops,
