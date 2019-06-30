@@ -168,7 +168,8 @@ with rs.Module(name="Luigi"):
     def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
         if prop_flavors.read() and prop_scoops.read() and len(prop_flavors.read()) == len(prop_scoops.read()):
             current_order = [x for x in zip(prop_flavors.read(), prop_scoops.read())]
-            ctx[prop_flavor_scoop_tuple_list] = prop_flavor_scoop_tuple_list.read() + current_order
+            add_orders_together(current_order, prop_flavor_scoop_tuple_list.read())
+            ctx[prop_flavor_scoop_tuple_list] = current_order
             ctx[prop_flavors] = []
             ctx[prop_scoops] = []
             possibly_complete_order, _ = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
@@ -176,14 +177,16 @@ with rs.Module(name="Luigi"):
             return rs.Emit()
         elif len(prop_flavors.read()) > len(prop_scoops.read()):
             current_order = [(prop_flavors.read()[i], prop_scoops.read()[i]) for i in range(0, len(prop_scoops.read()))]
-            ctx[prop_flavor_scoop_tuple_list] = prop_flavor_scoop_tuple_list.read() + current_order
+            add_orders_together(current_order, prop_flavor_scoop_tuple_list.read())
+            ctx[prop_flavor_scoop_tuple_list] = current_order
             ctx[prop_flavors] = prop_flavors.read()[len(prop_scoops.read()):]
             ctx[prop_scoops] = []
             ctx[rawio.prop_out] = "can you also tell me how many scoops " \
                                   "you want of {flavor}?".format(flavor=prop_flavors.read()[0])
         elif len(prop_flavors.read()) < len(prop_scoops.read()):
             current_order = [(prop_flavors.read()[i], prop_scoops.read()[i]) for i in range(0, len(prop_flavors.read()))]
-            ctx[prop_flavor_scoop_tuple_list] = prop_flavor_scoop_tuple_list.read() + current_order
+            add_orders_together(current_order, prop_flavor_scoop_tuple_list.read())
+            ctx[prop_flavor_scoop_tuple_list] = current_order
             ctx[prop_scoops] = prop_scoops.read()[len(prop_flavors.read()):]
             ctx[prop_flavors] = []
             if prop_scoops.read()[0] == 1:
@@ -192,6 +195,7 @@ with rs.Module(name="Luigi"):
             else:
                 ctx[rawio.prop_out] = "it would be helpful if you also told me what flavor you want {scoops} scoops " \
                                   "of...".format(scoops=prop_scoops.read()[0])
+
 
     @rs.state(
        cond=sig_finish_order_question.max_age(-1) & sig_yesno_detected,
@@ -227,18 +231,6 @@ with rs.Module(name="Luigi"):
 
 
 # -------------------- functions outside module -------------------- #
-
-def get_ordered_flavors(ordered_flavors):
-    order = ""
-    if len(ordered_flavors) == 1:
-        order = "{flavor}".format(flavor=ordered_flavors[0])
-    else:
-        order_length = len(ordered_flavors)
-        for i in range(0, order_length - 1):
-            order += "{flavor}, ".format(flavor=ordered_flavors[i])
-        order = order[:len(order)-2] + " "
-        order += "and {flavor}".format(flavor=ordered_flavors[order_length-1])
-    return order
 
 
 def get_complete_order_and_cost(flavor_scoop_tuple_list):
@@ -301,3 +293,21 @@ def extract_scoops(prop_ner):
             }
             scoops += [word2num[entity]]
     return scoops
+
+
+def list_contains_flavor(tuple_list, flavor):
+    for f, amount in tuple_list:
+        if f == flavor:
+            return amount
+    return None
+
+
+def add_orders_together(current_order, old_order):
+    for flavor, amount in old_order:
+        curr_amount = list_contains_flavor(current_order, flavor)
+        if curr_amount:
+            total_amount = amount + curr_amount
+            current_order.remove((flavor, curr_amount))
+            current_order.append((flavor, total_amount))
+        else:
+            current_order.append((flavor, amount))
