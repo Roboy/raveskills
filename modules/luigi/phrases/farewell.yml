@@ -1,0 +1,20 @@
+type: phrases
+name: "payment"
+opts:
+- "alrighty, payment time then! you owe me {cost} roboy coins for the {order}"
+- "Wow it took some time. That will be {cost} roboy coins for the {order} "
+- "Do you want some extra fries with that? Just kidding {cost} roboy coins for the {order}"
+---
+type: phrases
+name: "continue_order"
+opts:
+- "wow, you are quite hungry. then tell me what other ice cream you want!"
+- "It is never enough! Tell me what other ice cream you want "
+- "That's the spirit ! What more do you want?"
+---
+type: phrases
+name: "farewell"
+opts:
+- " thanks for buying ice cream - enjoy and come back anytime you like!"
+- " I hope you are satisfied with this experience! Hope to see you again!"
+- " Thanks for drooping by and remember there is always time for ice cream!"

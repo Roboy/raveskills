@@ -2,9 +2,12 @@ import ravestate as rs
 import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
+from ravestate_verbaliser import verbaliser
+from os.path import realpath, dirname, join
 
 cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
 
+verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
 with rs.Module(name="Luigi"):
 
     # -------------------- properties -------------------- #
@@ -99,7 +102,8 @@ with rs.Module(name="Luigi"):
         signal=sig_start_order_question,
         emit_detached=True)
     def prompt_order(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = "guess what! i'm selling ice cream. want some?"
+        out = verbaliser.get_random_question('greet_general')
+        ctx[rawio.prop_out] = out
         return rs.Emit()
 
     @rs.state(
@@ -108,10 +112,10 @@ with rs.Module(name="Luigi"):
         write=rawio.prop_out)
     def analyse_ice_cream_suggestion_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno] == "yes":
-            ctx[rawio.prop_out] = "i knew it - everyone loves ice cream! well, what can I get you?"
+            ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("greet_general")
             # TODO list flavors that we have?
         elif ctx[nlp.prop_yesno] == "no":
-            ctx[rawio.prop_out] = "hmm okay... well, what else can I do for you then?"
+            ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("greet_general")
 
     @rs.state(
        cond=prop_flavor.changed().detached() | prop_scoops.changed().detached(),
@@ -120,7 +124,7 @@ with rs.Module(name="Luigi"):
        write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavor, prop_scoops))
     def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
         if prop_flavor.read() and prop_scoops.read():
-            ctx[rawio.prop_out] = "{scoops} scoops of the {flavor} will be delicious! is that all?". \
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("legit_order"). \
                 format(scoops=prop_scoops.read(), flavor=prop_flavor.read())
             ctx[prop_flavor_scoop_tuple_list] = prop_flavor_scoop_tuple_list.read() + [(prop_flavor.read(),
                                                                                         prop_scoops.read())]
@@ -128,11 +132,9 @@ with rs.Module(name="Luigi"):
             ctx[prop_scoops] = None
             return rs.Emit()
         elif prop_flavor.read():
-            ctx[rawio.prop_out] = "{flavor} is also one of my favorites! can you also tell me how many scoops " \
-                                  "you want?".format(flavor=prop_flavor.read())
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_scoop").format(flavor=prop_flavor.read())
         elif prop_scoops.read():
-            ctx[rawio.prop_out] = "it would be helpful if you also told me what flavor you want {scoops} scoops " \
-                                  "of...".format(scoops=prop_scoops.read())
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_flavor").format(scoops=prop_scoops.read())
 
     @rs.state(
        cond=sig_finish_order_question.max_age(-1) & sig_yesno_detected,
@@ -143,18 +145,18 @@ with rs.Module(name="Luigi"):
     def analyse_payment_suggestion_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno] == "yes":
             complete_order, complete_cost = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
-            ctx[rawio.prop_out] = "alrighty, payment time then! you owe me {cost} roboy coins for the {order}.". \
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
                 format(cost=complete_cost, order=complete_order)
             # TODO add different payment options once we have them
             return rs.Emit()  # TODO signal should only be emitted once payment is completed
         elif ctx[nlp.prop_yesno] == "no":
-            ctx[rawio.prop_out] = "wow, you are quite hungry. then tell me what other ice cream you want!"
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("continue_order")
 
     @rs.state(
        cond=sig_finished_payment,
        write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavor, prop_scoops))
     def after_payment(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = "thanks for buying ice cream - enjoy and come back anytime you like!"
+        ctx[rawio.prop_out] = verbaliser.get_random_phrase("farewell")
         ctx[prop_flavor_scoop_tuple_list] = []
         ctx[prop_flavor] = None
         ctx[prop_scoops] = None
