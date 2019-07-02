@@ -4,7 +4,15 @@ import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
 
+
 cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
+
+FLAVORS = {"chocolate", "vanilla"}
+FLAVOR_SYNONYMS = {"flavor", "kind"}
+SCOOP_SYNONYMS = {"scoop", "ball", "servings"}
+DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
+NEGATION_SYNONYMS = {"no", "not"}
+
 
 with rs.Module(name="Luigi"):
 
@@ -32,7 +40,7 @@ with rs.Module(name="Luigi"):
         write=rawio.prop_out)
     def detect_specific_flavor_question(ctx: rs.ContextWrapper):
         tokens = ctx[nlp.prop_tokens]
-        if "chocolate" in tokens or "vanilla" in tokens:
+        if FLAVORS & set(tokens):
             # TODO deal with question
             ctx[rawio.prop_out] = "you asked a question about some flavor..."
         else:
@@ -44,7 +52,7 @@ with rs.Module(name="Luigi"):
         write=rawio.prop_out)
     def detect_flavor_question(ctx: rs.ContextWrapper):
         lemmas = ctx[nlp.prop_lemmas]
-        if "flavor" in lemmas or "kind" in lemmas:
+        if FLAVOR_SYNONYMS & set(lemmas):
             ctx[rawio.prop_out] = "i'm selling chocolate and vanilla today, both are pretty yummy... " \
                                   "gonna be hard to choose for you"
 
@@ -60,26 +68,25 @@ with rs.Module(name="Luigi"):
         triples = ctx[nlp.prop_triples]
         lemmas = ctx[nlp.prop_lemmas]
         ner = ctx[nlp.prop_ner]
-        if len(tokens) == 1 and "chocolate" in tokens or "vanilla" in tokens:
+        if len(tokens) == 1 and FLAVORS & set(tokens):
             # this case holds when customer orders ice creams using just the flavor name
             ice_cream_order = True
         elif len(tokens) == 1 and extract_scoops(ner):
             # this case holds when the customer simply states the number of scoops
             ice_cream_order = True
-        elif extract_scoops(ner) and triples[0].match_either_lemma(pred={"scoop", "ball", "servings"}):
+        elif extract_scoops(ner) and triples[0].match_either_lemma(pred=SCOOP_SYNONYMS):
             # this case holds when the customer states the number of scoops using
             # "three scoops please"
             # "2 servings of chocolate"
             ice_cream_order = True
-        elif extract_scoops(ner) and triples[0].match_either_lemma(pred={"please", "each"}):
+        elif extract_scoops(ner) and triples[0].match_either_lemma(pred={"each"}):
             # this case holds when the customer states the number of scoops as follows
             # "one each"
             ice_cream_order = True
         elif triples[0].match_either_lemma(subj={"i"}) and \
-                triples[0].match_either_lemma(pred={"want", "like", "desire", "have", "decide", "get",
-                                                    "choose", "wish", "prefer"}) and \
-                triples[0].match_either_lemma(obj={"chocolate", "vanilla"}) and \
-                "not" not in lemmas:
+                triples[0].match_either_lemma(pred=DESIRE_SYNONYMS) and \
+                triples[0].match_either_lemma(obj=FLAVORS) and \
+                not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when customer orders ice cream using phrases like
             # "i would like to have chocolate please"
             # "can i get some vanilla?"
@@ -90,8 +97,7 @@ with rs.Module(name="Luigi"):
             # "i don't like chocolate"
             # "i have decided not to have vanilla"
             ice_cream_order = True
-        elif triples[0].match_either_lemma(pred={"chocolate", "vanilla"}) and \
-                "no" not in lemmas and "not" not in lemmas:
+        elif triples[0].match_either_lemma(pred=FLAVORS) and not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when the order is phrased in a simple way like
             # "chocolate please"
             # "vanilla it is"
@@ -99,15 +105,14 @@ with rs.Module(name="Luigi"):
             # "no chocolate ice cream please"
             # "it is definitely not vanilla"
             ice_cream_order = True
-        elif triples[0].match_either_lemma(obj={"chocolate", "vanilla"}) and \
-                triples[0].match_either_lemma(pred={"scoop", "ball", "servings"}) and \
-                "no" not in lemmas and "not" not in lemmas:
+        elif triples[0].match_either_lemma(obj=FLAVORS) and \
+                triples[0].match_either_lemma(pred=SCOOP_SYNONYMS) and \
+                not NEGATION_SYNONYMS & set(lemmas):
             # this case holds for orders such as
             # "one scoop of chocolate"
             # "two servings of vanilla please"
             ice_cream_order = True
-        elif triples[0].match_either_lemma(subj={"chocolate", "vanilla"}) and \
-                "no" not in lemmas and "not" not in lemmas:
+        elif triples[0].match_either_lemma(subj=FLAVORS) and not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when the customer makes his order as follows:
             # "vanilla sounds delicious"
             # "chocolate would be good"
