@@ -12,17 +12,27 @@ FLAVOR_SYNONYMS = {"flavor", "kind"}
 SCOOP_SYNONYMS = {"scoop", "ball", "servings"}
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
 NEGATION_SYNONYMS = {"no", "not"}
+ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
+
+# TODO connect with data base from autonomous driving and possibly add synonyms for all places
+PLACES = {"mensa", "mi", "mw", "ubahn"}
+PROXIMITY_SYNONYMS = {"near", "close", "at", "right", "by", "in"}
 
 
 with rs.Module(name="Luigi"):
 
     # -------------------- properties -------------------- #
 
-    prop_flavors = rs.Property(name="flavor", always_signal_changed=False, default_value=[], allow_read=True, allow_write=True)
-    prop_scoops = rs.Property(name="scoops", always_signal_changed=False, default_value=[], allow_read=True, allow_write=True)
+    prop_flavors = rs.Property(name="flavor", always_signal_changed=False, default_value=[], allow_read=True,
+                               allow_write=True)
+    prop_scoops = rs.Property(name="scoops", always_signal_changed=False, default_value=[], allow_read=True,
+                              allow_write=True)
     prop_flavor_scoop_tuple_list = rs.Property(name="flavor_scoop_tuple_list", default_value=[], allow_write=True,
                                                allow_read=True, always_signal_changed=False)
-    prop_suggested_ice_cream = rs.Property(name="suggested_ice_cream", always_signal_changed=False, default_value=False, allow_read=True, allow_write=True)
+    prop_suggested_ice_cream = rs.Property(name="suggested_ice_cream", always_signal_changed=False, default_value=False,
+                                           allow_read=True, allow_write=True)
+    prop_location = rs.Property(name="location", always_signal_changed=False, default_value=[], allow_read=True,
+                                allow_write=True)
 
     # -------------------- signals -------------------- #
 
@@ -31,6 +41,10 @@ with rs.Module(name="Luigi"):
     sig_finished_payment = rs.Signal("finished_payment")
     sig_yesno_detected = rs.Signal("yesno")
     sig_changed_flavor_or_scoops = rs.Signal("changed_flavor_or_scoops")
+    sig_telegram_conversation = rs.Signal("telegram_conversation")
+    sig_has_arrived = rs.Signal("has_arrived")
+    sig_ice_cream_desire = rs.Signal("ice_cream_desire")
+    sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
 
     # -------------------- states: detection -------------------- #
 
@@ -55,6 +69,58 @@ with rs.Module(name="Luigi"):
         if FLAVOR_SYNONYMS & set(lemmas):
             ctx[rawio.prop_out] = "i'm selling chocolate and vanilla today, both are pretty yummy... " \
                                   "gonna be hard to choose for you"
+
+    @rs.state(
+        cond=nlp.prop_tokens.changed(),
+        read=(nlp.prop_triples, nlp.prop_lemmas),
+        signal=sig_ice_cream_desire)
+    def detect_ice_cream_desire(ctx: rs.ContextWrapper):
+        triples = ctx[nlp.prop_triples]
+        lemmas = ctx[nlp.prop_lemmas]
+        if triples[0].match_either_lemma(subj={"i"}) and \
+                triples[0].match_either_lemma(pred=DESIRE_SYNONYMS) and \
+                triples[0].match_either_lemma(obj=ICE_CREAM_SYNONYMS) and \
+                not NEGATION_SYNONYMS & set(lemmas):
+            # signal is emitted when customer expresses the wish for ice cream using phrases like
+            # "i would like to have ice cream please"
+            # "can i get some ice cream?"
+            # "i want ice cream!"
+            return rs.Emit()
+
+    @rs.state(
+        cond=nlp.prop_tokens.changed(),
+        read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas),
+        write=prop_location)
+    def detect_location(ctx: rs.ContextWrapper):
+        tokens = ctx[nlp.prop_tokens]
+        triples = ctx[nlp.prop_triples]
+        lemmas = ctx[nlp.prop_lemmas]
+        if triples[0].match_either_lemma(pred=PLACES) and \
+                not NEGATION_SYNONYMS & set(lemmas):
+            # for expressing locations with just single words such as "mensa" or "mi building"
+            ctx[prop_location] = extract_location(tokens)
+        elif triples[0].match_either_lemma(subj={"i"}) and \
+                triples[0].match_either_lemma(pred={"be"}) and \
+                triples[0].match_either_lemma(obj=PLACES) and \
+                not NEGATION_SYNONYMS & set(lemmas):
+            # for expressing locations using sentences like
+            # "i am in front of the mensa"
+            # "i am near the mi"
+            ctx[prop_location] = extract_location(tokens)
+        elif triples[0].match_either_lemma(pred=PROXIMITY_SYNONYMS) and \
+                triples[0].match_either_lemma(obj=PLACES) and \
+                not NEGATION_SYNONYMS & set(lemmas):
+            # for expressing locations using phrases like
+            # "right by the mensa"
+            # "at the mi"
+            ctx[prop_location] = extract_location(tokens)
+        elif triples[0].match_either_lemma(pred={"meet", "let"}) and \
+                triples[0].match_either_lemma(obj=PLACES) and \
+                not NEGATION_SYNONYMS & set(lemmas):
+            # for expressing locations using phrases like
+            # "let's meet at the ubahn"
+            # "meet me at the mw"
+            ctx[prop_location] = extract_location(tokens)
 
     @rs.state(
         cond=nlp.prop_tokens.changed(),
@@ -140,11 +206,23 @@ with rs.Module(name="Luigi"):
 
     # -------------------- states: conversation flow -------------------- #
 
+    # TODO uncomment if telegram / AD dialogue functionality is to be tested
+    # the telegram signal is used to distinguish whether customer needs to be asked where he is located before starting
+    # the ordering process...)
+    # @rs.state(
+    #     cond=interloc.prop_all.pushed().detached().min_age(1),
+    #     write=prop_suggested_ice_cream,
+    #     signal=sig_telegram_conversation,
+    #     emit_detached=True)
+    # def dummy_telegram_signal(ctx: rs.ContextWrapper):
+    #     ctx[prop_suggested_ice_cream] = True
+    #     return rs.Emit()
+
     @rs.state(
         cond=interloc.prop_all.pushed().detached().min_age(2) | idle.sig_bored.min_age(1),
         read=prop_suggested_ice_cream,
         write=(rawio.prop_out, prop_suggested_ice_cream),
-        signal=sig_start_order_question,
+        signal=sig_suggested_ice_cream,
         emit_detached=True)
     def prompt_order(ctx: rs.ContextWrapper):
         has_already_asked = ctx[prop_suggested_ice_cream]
@@ -154,15 +232,60 @@ with rs.Module(name="Luigi"):
             return rs.Emit()
 
     @rs.state(
-        cond=sig_start_order_question.max_age(-1) & sig_yesno_detected,
+        cond=sig_suggested_ice_cream.max_age(-1) & sig_yesno_detected,
         read=nlp.prop_yesno,
-        write=rawio.prop_out)
+        write=rawio.prop_out,
+        signal=sig_start_order_question,
+        emit_detached=True)
     def analyse_ice_cream_suggestion_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno] == "yes":
-            ctx[rawio.prop_out] = "i knew it - everyone loves ice cream! well, what can I get you?"
-            # TODO list flavors that we have?
+            ctx[rawio.prop_out] = "i knew it - everyone loves ice cream!"
+            return rs.Emit()
         elif ctx[nlp.prop_yesno] == "no":
             ctx[rawio.prop_out] = "hmm okay... well, what else can I do for you then?"
+
+    @rs.state(
+        cond=sig_ice_cream_desire.max_age(-1),
+        write=rawio.prop_out,
+        signal=sig_start_order_question,
+        emit_detached=True)
+    def ice_cream_desire_will_be_fulfilled(ctx: rs.ContextWrapper):
+        ctx[rawio.prop_out] = "you are talking to the right person, i can get you some ice cream!"
+        return rs.Emit()
+
+    @rs.state(
+        cond=sig_start_order_question.max_age(-1) & sig_telegram_conversation.max_age(-1),
+        write=rawio.prop_out)
+    def ask_for_location(ctx: rs.ContextWrapper):
+        ctx[rawio.prop_out] = "just tell me where i can meet you!"
+
+    @rs.state(
+        cond=sig_start_order_question.max_age(-1) & sig_suggested_ice_cream.detached().max_age(-1)
+             | sig_has_arrived.detached().min_age(2),
+        write=rawio.prop_out)
+    def start_order(ctx: rs.ContextWrapper):
+        ctx[rawio.prop_out] = "what can i get you?"
+
+    @rs.state(
+        read=prop_location,
+        write=rawio.prop_out,
+        signal=sig_has_arrived, # TODO remove, this is just a dummy, should be emitted when AD team signals arrival
+        emit_detached=True)
+    def known_location(ctx: rs.ContextWrapper):
+        location = ctx[prop_location]
+        if location == "unknown":
+            ctx[rawio.prop_out] = "hmm, i didn't understand where you are... " \
+                                  "maybe i can meet you at a spot everyone knows?"
+        else:
+            ctx[rawio.prop_out] = "i will be at {location} in {min} minutes, see you then!" \
+                .format(location=location, min=get_arrival_time())
+            return rs.Emit()
+
+    @rs.state(
+        cond=sig_has_arrived,
+        write=rawio.prop_out)
+    def arrived_at_location(ctx: rs.ContextWrapper):
+            ctx[rawio.prop_out] = "hey you, nice to see you in person. now it's ice cream time!"
 
     @rs.state(
         cond=sig_changed_flavor_or_scoops,
@@ -220,19 +343,22 @@ with rs.Module(name="Luigi"):
 
     @rs.state(
        cond=sig_finished_payment,
-       write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops))
+       write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops, prop_suggested_ice_cream))
     def after_payment(ctx: rs.ContextWrapper):
         ctx[rawio.prop_out] = "thanks for buying ice cream - enjoy and come back anytime you like!"
         ctx[prop_flavor_scoop_tuple_list] = []
         ctx[prop_flavors] = []
         ctx[prop_scoops] = []
+        ctx[prop_suggested_ice_cream] = False
 
     @rs.state(
-       cond=interloc.prop_all.popped())
+       cond=interloc.prop_all.popped(),
+       write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops, prop_suggested_ice_cream))
     def customer_left(ctx: rs.ContextWrapper):
         ctx[prop_flavor_scoop_tuple_list] = []
         ctx[prop_flavors] = []
         ctx[prop_scoops] = []
+        ctx[prop_suggested_ice_cream] = False
 
 
 # -------------------- functions outside module -------------------- #
@@ -270,10 +396,17 @@ def get_complete_order_and_cost(flavor_scoop_tuple_list):
     return order, cost
 
 
+def extract_location(prop_tokens):
+    for token in prop_tokens:
+        if token in PLACES:
+            return token
+    return "unknown"
+
+
 def extract_flavors(prop_tokens):
     flavors = []
     for token in prop_tokens:
-        if token in ("vanilla", "chocolate"):
+        if token in FLAVORS:
             flavors += [token]
     return flavors
 
@@ -316,3 +449,8 @@ def add_orders_together(current_order, old_order):
             current_order.append((flavor, total_amount))
         else:
             current_order.append((flavor, amount))
+
+
+def get_arrival_time():
+    # TODO receive time from AD team that says how long they will need to get to the requested location
+    return 42
