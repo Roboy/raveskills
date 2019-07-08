@@ -102,8 +102,7 @@ with rs.Module(name="Luigi"):
         signal=sig_start_order_question,
         emit_detached=True)
     def prompt_order(ctx: rs.ContextWrapper):
-        out = verbaliser.get_random_question('greet_general')
-        ctx[rawio.prop_out] = out
+        ctx[rawio.prop_out] = verbaliser.get_random_question('greet_general')
         return rs.Emit()
 
     @rs.state(

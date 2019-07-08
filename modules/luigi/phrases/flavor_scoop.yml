@@ -2,19 +2,19 @@ type: phrases
 name: "legit_order"
 opts:
 - "{scoops} scoops of the {flavor} will be delicious! is that all?"
-- "Wow you are quite a picker! {scoops} scoops of the {flavor} then! Are we done?"
-- "Not a bad choice! {scoops} scoops of the {flavor} sound delicious. Are we good to go?"
+- "wow you are quite a picker! {scoops} scoops of the {flavor} then! are we done?"
+- "not a bad choice! {scoops} scoops of the {flavor} sound delicious. are we good to go?"
 ---
 type: phrases
 name: "need_flavor"
 opts:
 - "it would be helpful if you also told me what flavor you want {scoops} scoops of ..."
-- "You forgot the most important part! What  {scoops} scoops of flavor do you want?"
-- "{scoops} scoops of what exactly? Could you tell me also a flavor?"
+- "you forgot the most important part! what {scoops} scoops of flavor you want?"
+- "{scoops} scoops of what exactly? could you tell me also a flavor?"
 ---
 type: phrases
 name: "need_scoop"
 opts:
-- " {flavor} is also one of my favorites! can you also tell me how many scoops do you want?"
-- " Hard part is over! Okay you want {flavor} , could you also tell me how many scoops do you want?"
-- " {flavor} is quite good choice! But I also will need scoop count..."
+- "{flavor} is also one of my favorites! can you also tell me how many scoops you want?"
+- "hard part is over! okay you want {flavor}, could you also tell me how many scoops you want?"
+- "{flavor} is quite a good choice! but i also will need scoop count..."
