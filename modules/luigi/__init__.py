@@ -2,16 +2,23 @@ import ravestate as rs
 import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
+
+from ravestate_verbaliser import verbaliser
+from os.path import realpath, dirname, join
+
+cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
+
+verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
 import ravestate_idle as idle
 
 
-cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
 
 FLAVORS = {"chocolate", "vanilla"}
 FLAVOR_SYNONYMS = {"flavor", "kind"}
 SCOOP_SYNONYMS = {"scoop", "ball", "servings"}
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
 NEGATION_SYNONYMS = {"no", "not"}
+
 
 
 with rs.Module(name="Luigi"):
@@ -149,7 +156,7 @@ with rs.Module(name="Luigi"):
     def prompt_order(ctx: rs.ContextWrapper):
         has_already_asked = ctx[prop_suggested_ice_cream]
         if not has_already_asked:
-            ctx[rawio.prop_out] = "guess what! i'm selling ice cream. want some?"
+            ctx[rawio.prop_out] = verbaliser.get_random_question('greet_general')
             ctx[prop_suggested_ice_cream] = True
             return rs.Emit()
 
@@ -159,10 +166,10 @@ with rs.Module(name="Luigi"):
         write=rawio.prop_out)
     def analyse_ice_cream_suggestion_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno] == "yes":
-            ctx[rawio.prop_out] = "i knew it - everyone loves ice cream! well, what can I get you?"
+            ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("greet_general")
             # TODO list flavors that we have?
         elif ctx[nlp.prop_yesno] == "no":
-            ctx[rawio.prop_out] = "hmm okay... well, what else can I do for you then?"
+            ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("greet_general")
 
     @rs.state(
         cond=sig_changed_flavor_or_scoops,
@@ -178,7 +185,7 @@ with rs.Module(name="Luigi"):
             ctx[prop_flavors] = []
             ctx[prop_scoops] = []
             possibly_complete_order, _ = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
-            ctx[rawio.prop_out] = "{order} will be delicious! is that all?".format(order=possibly_complete_order)
+            ctx[rawio.prop_out] = "{order} will be delicious! is that all?".format(order=possibly_complete_order) ##TODO: change yaml file for order
             return rs.Emit()
         elif len(prop_flavors.read()) > len(prop_scoops.read()):
             current_order = [(prop_flavors.read()[i], prop_scoops.read()[i]) for i in range(0, len(prop_scoops.read()))]
@@ -186,8 +193,7 @@ with rs.Module(name="Luigi"):
             ctx[prop_flavor_scoop_tuple_list] = current_order
             ctx[prop_flavors] = prop_flavors.read()[len(prop_scoops.read()):]
             ctx[prop_scoops] = []
-            ctx[rawio.prop_out] = "can you also tell me how many scoops " \
-                                  "you want of {flavor}?".format(flavor=prop_flavors.read()[0])
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_scoop").format(flavor=prop_flavors.read()[0])
         elif len(prop_flavors.read()) < len(prop_scoops.read()):
             current_order = [(prop_flavors.read()[i], prop_scoops.read()[i]) for i in range(0, len(prop_flavors.read()))]
             add_orders_together(current_order, prop_flavor_scoop_tuple_list.read())
@@ -195,11 +201,10 @@ with rs.Module(name="Luigi"):
             ctx[prop_scoops] = prop_scoops.read()[len(prop_flavors.read()):]
             ctx[prop_flavors] = []
             if prop_scoops.read()[0] == 1:
-                ctx[rawio.prop_out] = "it would be helpful if you also told me what flavor you want {scoop} scoop " \
-                                      "of...".format(scoop=prop_scoops.read()[0])
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_flavor").format(scoop=prop_scoops.read()[0])
             else:
                 ctx[rawio.prop_out] = "it would be helpful if you also told me what flavor you want {scoops} scoops " \
-                                  "of...".format(scoops=prop_scoops.read()[0])
+                                  "of...".format(scoops=prop_scoops.read()[0]) #TODO: Change yaml file for scoops
 
 
     @rs.state(
@@ -211,18 +216,18 @@ with rs.Module(name="Luigi"):
     def analyse_payment_suggestion_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno] == "yes":
             complete_order, complete_cost = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
-            ctx[rawio.prop_out] = "alrighty, payment time then! you owe me {cost} roboy coins for the {order}.". \
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
                 format(cost=complete_cost, order=complete_order)
             # TODO add different payment options once we have them
             return rs.Emit()  # TODO signal should only be emitted once payment is completed
         elif ctx[nlp.prop_yesno] == "no":
-            ctx[rawio.prop_out] = "wow, you are quite hungry. then tell me what other ice cream you want!"
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("continue_order")
 
     @rs.state(
        cond=sig_finished_payment,
        write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops))
     def after_payment(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = "thanks for buying ice cream - enjoy and come back anytime you like!"
+        ctx[rawio.prop_out] = verbaliser.get_random_phrase("farewell")
         ctx[prop_flavor_scoop_tuple_list] = []
         ctx[prop_flavors] = []
         ctx[prop_scoops] = []

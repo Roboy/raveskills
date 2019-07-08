@@ -1,0 +1,16 @@
+type: qa                                    # remark types: question answering (qa), phrases
+name: "greet_general"                              # intent or topic
+Q:                                          # possible questions
+- "guess what! i'm selling ice cream. want some?"
+- "would you like to have an ice cream?"
+- "YO YO YO! IT IS ICE CREAM TIME! DO YOU WANT SOME ICE CREAM?"
+- "you look like you could use some ice cream! do you want some?"
+A:                                          # answers
+  SUCCESS:
+  - "i knew it - everyone loves ice cream! well, what can I get you?"
+  - "that's the spirit! what kind of ice cream do you want?"
+  - "you have chosen ... wisely. what can i get you adventurer?"
+  FAILURE:
+  - "that's a shame! you can ask me again if you want some."
+  - "it's hottest time of the year and you dont want ice cream? have fun surviving human."
+  - "you have chosen... poorly. what else do you want from me?"
