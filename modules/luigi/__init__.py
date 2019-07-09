@@ -2,34 +2,33 @@ import ravestate as rs
 import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
-
+import ravestate_idle as idle
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
+verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
 
 cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
-
-verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
-import ravestate_idle as idle
-
-
 
 FLAVORS = {"chocolate", "vanilla"}
 FLAVOR_SYNONYMS = {"flavor", "kind"}
 SCOOP_SYNONYMS = {"scoop", "ball", "servings"}
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
 NEGATION_SYNONYMS = {"no", "not"}
-
+ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
 
 
 with rs.Module(name="Luigi"):
 
     # -------------------- properties -------------------- #
 
-    prop_flavors = rs.Property(name="flavor", always_signal_changed=False, default_value=[], allow_read=True, allow_write=True)
-    prop_scoops = rs.Property(name="scoops", always_signal_changed=False, default_value=[], allow_read=True, allow_write=True)
+    prop_flavors = rs.Property(name="flavor", always_signal_changed=False, default_value=[], allow_read=True,
+                               allow_write=True)
+    prop_scoops = rs.Property(name="scoops", always_signal_changed=False, default_value=[], allow_read=True,
+                              allow_write=True)
     prop_flavor_scoop_tuple_list = rs.Property(name="flavor_scoop_tuple_list", default_value=[], allow_write=True,
                                                allow_read=True, always_signal_changed=False)
-    prop_suggested_ice_cream = rs.Property(name="suggested_ice_cream", always_signal_changed=False, default_value=False, allow_read=True, allow_write=True)
+    prop_suggested_ice_cream = rs.Property(name="suggested_ice_cream", always_signal_changed=False, default_value=False,
+                                           allow_read=True, allow_write=True)
 
     # -------------------- signals -------------------- #
 
@@ -38,6 +37,9 @@ with rs.Module(name="Luigi"):
     sig_finished_payment = rs.Signal("finished_payment")
     sig_yesno_detected = rs.Signal("yesno")
     sig_changed_flavor_or_scoops = rs.Signal("changed_flavor_or_scoops")
+    sig_has_arrived = rs.Signal("has_arrived")  # TODO ad team should send this once Roboy has arrived
+    sig_ice_cream_desire = rs.Signal("ice_cream_desire")
+    sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
 
     # -------------------- states: detection -------------------- #
 
@@ -62,6 +64,23 @@ with rs.Module(name="Luigi"):
         if FLAVOR_SYNONYMS & set(lemmas):
             ctx[rawio.prop_out] = "i'm selling chocolate and vanilla today, both are pretty yummy... " \
                                   "gonna be hard to choose for you"
+
+    @rs.state(
+        cond=nlp.prop_tokens.changed(),
+        read=(nlp.prop_triples, nlp.prop_lemmas),
+        signal=sig_ice_cream_desire)
+    def detect_ice_cream_desire(ctx: rs.ContextWrapper):
+        triples = ctx[nlp.prop_triples]
+        lemmas = ctx[nlp.prop_lemmas]
+        if triples[0].match_either_lemma(subj={"i"}) and \
+                triples[0].match_either_lemma(pred=DESIRE_SYNONYMS) and \
+                triples[0].match_either_lemma(obj=ICE_CREAM_SYNONYMS) and \
+                not NEGATION_SYNONYMS & set(lemmas):
+            # signal is emitted when customer expresses the wish for ice cream using phrases like
+            # "i would like to have ice cream please"
+            # "can i get some ice cream?"
+            # "i want ice cream!"
+            return rs.Emit()
 
     @rs.state(
         cond=nlp.prop_tokens.changed(),
@@ -151,7 +170,7 @@ with rs.Module(name="Luigi"):
         cond=interloc.prop_all.pushed().detached().min_age(2) | idle.sig_bored.min_age(1),
         read=prop_suggested_ice_cream,
         write=(rawio.prop_out, prop_suggested_ice_cream),
-        signal=sig_start_order_question,
+        signal=sig_suggested_ice_cream,
         emit_detached=True)
     def prompt_order(ctx: rs.ContextWrapper):
         has_already_asked = ctx[prop_suggested_ice_cream]
@@ -161,15 +180,39 @@ with rs.Module(name="Luigi"):
             return rs.Emit()
 
     @rs.state(
-        cond=sig_start_order_question.max_age(-1) & sig_yesno_detected,
+        cond=sig_suggested_ice_cream.max_age(-1) & sig_yesno_detected,
         read=nlp.prop_yesno,
-        write=rawio.prop_out)
+        write=rawio.prop_out,
+        signal=sig_start_order_question,
+        emit_detached=True)
     def analyse_ice_cream_suggestion_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno] == "yes":
             ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("greet_general")
-            # TODO list flavors that we have?
+            return rs.Emit()
         elif ctx[nlp.prop_yesno] == "no":
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("greet_general")
+
+    @rs.state(
+        cond=sig_ice_cream_desire.max_age(-1),
+        write=rawio.prop_out,
+        signal=sig_start_order_question,
+        emit_detached=True)
+    def ice_cream_desire_will_be_fulfilled(ctx: rs.ContextWrapper):
+        ctx[rawio.prop_out] = "you are talking to the right person, i can get you some ice cream!"
+        return rs.Emit()
+
+    @rs.state(
+        cond=sig_start_order_question.max_age(-1) & sig_suggested_ice_cream.detached().max_age(-1)
+             | sig_has_arrived.detached().min_age(2),
+        write=rawio.prop_out)
+    def start_order(ctx: rs.ContextWrapper):
+        ctx[rawio.prop_out] = "what can i get you?"
+
+    @rs.state(
+        cond=sig_has_arrived,
+        write=rawio.prop_out)
+    def arrived_at_location(ctx: rs.ContextWrapper):
+            ctx[rawio.prop_out] = "hey you, nice to see you in person. now it's ice cream time!"
 
     @rs.state(
         cond=sig_changed_flavor_or_scoops,
@@ -185,7 +228,8 @@ with rs.Module(name="Luigi"):
             ctx[prop_flavors] = []
             ctx[prop_scoops] = []
             possibly_complete_order, _ = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
-            ctx[rawio.prop_out] = "{order} will be delicious! is that all?".format(order=possibly_complete_order) ##TODO: change yaml file for order
+            # TODO: change yml file for order
+            ctx[rawio.prop_out] = "{order} will be delicious! is that all?".format(order=possibly_complete_order)
             return rs.Emit()
         elif len(prop_flavors.read()) > len(prop_scoops.read()):
             current_order = [(prop_flavors.read()[i], prop_scoops.read()[i]) for i in range(0, len(prop_scoops.read()))]
@@ -204,7 +248,7 @@ with rs.Module(name="Luigi"):
                 ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_flavor").format(scoop=prop_scoops.read()[0])
             else:
                 ctx[rawio.prop_out] = "it would be helpful if you also told me what flavor you want {scoops} scoops " \
-                                  "of...".format(scoops=prop_scoops.read()[0]) #TODO: Change yaml file for scoops
+                                  "of...".format(scoops=prop_scoops.read()[0])  # TODO: Change yml file for scoops
 
 
     @rs.state(
@@ -225,19 +269,22 @@ with rs.Module(name="Luigi"):
 
     @rs.state(
        cond=sig_finished_payment,
-       write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops))
+       write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops, prop_suggested_ice_cream))
     def after_payment(ctx: rs.ContextWrapper):
         ctx[rawio.prop_out] = verbaliser.get_random_phrase("farewell")
         ctx[prop_flavor_scoop_tuple_list] = []
         ctx[prop_flavors] = []
         ctx[prop_scoops] = []
+        ctx[prop_suggested_ice_cream] = False
 
     @rs.state(
-       cond=interloc.prop_all.popped())
+       cond=interloc.prop_all.popped(),
+       write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops, prop_suggested_ice_cream))
     def customer_left(ctx: rs.ContextWrapper):
         ctx[prop_flavor_scoop_tuple_list] = []
         ctx[prop_flavors] = []
         ctx[prop_scoops] = []
+        ctx[prop_suggested_ice_cream] = False
 
 
 # -------------------- functions outside module -------------------- #
@@ -274,11 +321,10 @@ def get_complete_order_and_cost(flavor_scoop_tuple_list):
         cost += cost_per_scoop * flavor_scoop_tuple_list[order_length-1][1]
     return order, cost
 
-
 def extract_flavors(prop_tokens):
     flavors = []
     for token in prop_tokens:
-        if token in ("vanilla", "chocolate"):
+        if token in FLAVORS:
             flavors += [token]
     return flavors
 
