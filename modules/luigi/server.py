@@ -5,6 +5,10 @@ from time import time
 from enum import Enum
 #from time import sleep
 
+class PaymentOptions(Enum):
+	COIN = 0
+	PAYPAL = 1
+
 class Paid(Enum):
 	PAID_NONE = 0
 	PAID_LESS = 2
