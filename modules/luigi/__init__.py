@@ -201,12 +201,6 @@ with rs.Module(name="Luigi"):
         ctx[rawio.prop_out] = "you are talking to the right person, i can get you some ice cream!"
         return rs.Emit()
 
-    @rs.state(
-        cond=sig_start_order_question.max_age(-1) & sig_suggested_ice_cream.detached().max_age(-1)
-             | sig_has_arrived.detached().min_age(2),
-        write=rawio.prop_out)
-    def start_order(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = "what can i get you?"
 
     @rs.state(
         cond=sig_has_arrived,
