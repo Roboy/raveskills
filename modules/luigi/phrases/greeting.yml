@@ -6,10 +6,11 @@ Q:                                          # possible questions
 - "YO YO YO! IT IS ICE CREAM TIME! DO YOU WANT SOME ICE CREAM?"
 - "you look like you could use some ice cream! do you want some?"
 - "hey do you want to try my ice cream?"
-- "i am here drop coolest hit of summer. do you want some ice cream?"
+- "i am here to drop coolest hit of summer. do you want some ice cream?"
 - "do not panic. roboy is here to save your day. would you like to have some ice cream?"
 - "calories of today don't count, so do you want to have some ice cream?"
 - "i am here to chew bubblegum and serve ice cream. and i am all out of gum. so do you want some ice cream?"
+- "for me meaning of life is not 42, it is ice cream. do you also want ice cream to find your meaning of life?"
 A:                                          # answers
   SUCCESS:
   - "i knew it - everyone loves ice cream! what do you want?"
