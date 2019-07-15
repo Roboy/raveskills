@@ -7,7 +7,7 @@ def payment_client(price, payment_option):
         rospy.wait_for_service('payment')
         payment = rospy.ServiceProxy('payment', Payment)
         resp = payment(price, payment_option)
-        return resp.state
+        return resp.is_paid
     except Exception as e:
         print('Service call failed:', e)
 
