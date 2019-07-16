@@ -16,14 +16,8 @@ def payment_communication(price, payment_option):
     return 220, ""
 
 
-
-# TODO add mock up server for scooping?!
-def scooping_communication(flavor, scoops):
-    pass
-    # rospy.wait_for_service('scooping')  # TODO change name after talking with scooping team
-    # try:
-    #     scooping = rospy.ServiceProxy('scooping', Scooping)
-    #     response = scooping(flavor, scoops)
-    #     return response.success, response.error_message
-    # except Exception as e:
-    #     print('Service call failed:', e)
+def scooping_communication(flavors, scoops):
+    # TODO add action communication and mock up server for scooping?!
+    print("in scooping communication - flavors: {} scoops: {}".format(flavors, scoops))
+    time.sleep(2)
+    return True, ""

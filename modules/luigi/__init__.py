@@ -328,18 +328,28 @@ with rs.Module(name="Luigi"):
 
     @rs.state(
        cond=sig_finish_order_question.max_age(-1) & sig_yesno_detected,
-       read=nlp.prop_yesno,
+       read=(prop_flavor_scoop_tuple_list, nlp.prop_yesno),
        write=(rawio.prop_out, prop_price),
        emit_detached=True,
        signal=sig_start_payment)
-    def analyse_payment_suggestion_answer(ctx: rs.ContextWrapper):
+    def analyse_finish_order_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno] == "yes":
-            complete_order, complete_cost = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
-                format(cost=complete_cost, order=complete_order) + \
-                "\nhow would you like to pay? either coins or paypal are possible."  # TODO verbaliser
+            flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
+            complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
+            ctx[rawio.prop_out] = "alright, {order} coming right up!".format(order=complete_order)  # TODO verbalizer
             ctx[prop_price] = complete_cost * 100   # price is in cents
-            return rs.Emit()
+            flavors = [x for x, _ in flavor_scoop_tuple_list]
+            scoops = [y for _, y in flavor_scoop_tuple_list]
+            success, error_message = scooping_communication(flavors, scoops)
+            if success:
+                # TODO change verbalizer to add things like "here you go" or "enjoy" while handing over ice cream
+                # TODO add to verbalizer the question of how to pay
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
+                                      format(cost=complete_cost, order=complete_order) + \
+                                      "\nhow would you like to pay? either coins or paypal are possible."
+                return rs.Emit()
+            else:
+                ctx[rawio.prop_out] = "for some reason this didn't work out..."  # TODO stop conversation?
         elif ctx[nlp.prop_yesno] == "no":
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("continue_order")
 
