@@ -1,4 +1,0 @@
-uint16 price
-uint8 payment_option
----
-uint8 is_paid
