@@ -110,6 +110,12 @@ def test_legit_order():
         ctx.run_once()
     assert last_output in verbaliser.get_question_list("greet_general")
 
+    say("yes")
+
+    # Wait for acknowledgement of answer
+    while not raw_out.wait(.1):
+        ctx.run_once()
+
     # Legit order
 
     say("three scoops of vanilla please")
@@ -126,6 +132,18 @@ def test_legit_order():
     # Wait for acknowledgement of answer
     while not raw_out.wait(.1):
         ctx.run_once()
+
+    assert last_output.replace("3 scoops of vanilla", "{order}").replace("3", "{cost}") in \
+           verbaliser.get_phrase_list("payment")
+
+    # TODO Test payment
+
+    say("bye")
+
+    # Wait for acknowledgement of answer
+    while not raw_out.wait(.1):
+        ctx.run_once()
+    assert last_output in verbaliser.get_phrase_list("luigi_farewell")
 
 
 def test_need_scoop():
@@ -162,6 +180,12 @@ def test_need_scoop():
     ctx.run_once()
 
     assert luigi_hi.wait()
+
+    say("yes")
+
+    # Wait for acknowledgement of answer
+    while not raw_out.wait(.1):
+        ctx.run_once()
 
     # Wait for greeting
     while not raw_out.wait(.1):

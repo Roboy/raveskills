@@ -5,7 +5,7 @@ opts:
 - "wow you are quite a picker! {order} then! are we done?"
 - "not a bad choice! {order} sound delicious. are we good to go?"
 - "{order} coming right up! is that all?"
-- "i am going to prepare {order} now. do you want to add something?"
+- "i am going to prepare {order} now. is that all?"
 - "i've heard you! {order} is going to be prepared. is that all?"
 ---
 type: phrases
