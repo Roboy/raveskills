@@ -2,11 +2,35 @@ type: phrases
 name: "payment"
 opts:
 - "alrighty, payment time then! you owe me {cost} euros for the {order}"
-- "wow it took some time. That will be {cost} euros for the {order} "
+- "wow it took some time. That will be {cost} euros for the {order}"
 - "do you want some extra fries with that? just kidding {cost} euros for the {order}"
 - "we are all set! i just need {cost} euros for the {order}"
-- "wow it took some time. That will be {cost} euros for the {order} "
+- "wow it took some time. That will be {cost} euros for the {order}"
 - "now for the for the {order} i will need {cost} euros. sorry no money no ice cream!"
+---
+type: phrases
+name: "payment_options"
+opts:
+- "how would you like to pay? either coins or paypal are possible"
+- "you can pay with coins or paypal."
+- "please pay with either coins or paypal"
+- "now it is my favorite time! you can pay me with coins or paypal"
+---
+type: phrases
+name: "giving_icecream"
+opts:
+- "here you go!"
+- "enjoy!"
+- "this has became my masterpiece. here take it"
+- "coolest ice cream in the town is yours, here!"
+---
+type: phrases
+name: "unexpected"
+opts:
+- "ooops something went wrong"
+- "for some reason this didn't work out..."
+- "unfortunately there was a problem"
+- "something unexpected happened"
 ---
 type: phrases
 name: "continue_order"

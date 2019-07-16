@@ -330,20 +330,19 @@ with rs.Module(name="Luigi"):
         if ctx[nlp.prop_yesno] == "yes":
             flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
             complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
-            ctx[rawio.prop_out] = "alright, {order} coming right up!".format(order=complete_order)  # TODO verbalizer
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("preparing_order").format(order=complete_order)
             ctx[prop_price] = complete_cost * 100   # price is in cents
             flavors = [x for x, _ in flavor_scoop_tuple_list]
             scoops = [y for _, y in flavor_scoop_tuple_list]
             success, error_message = scooping_communication(flavors, scoops)
             if success:
-                # TODO change verbalizer to add things like "here you go" or "enjoy" while handing over ice cream
-                # TODO add to verbalizer the question of how to pay
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("giving_icecream")
                 ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
                                       format(cost=complete_cost, order=complete_order) + \
-                                      "\nhow would you like to pay? either coins or paypal are possible."
+                                      "\n"+verbaliser.get_random_phrase("payment_options")
                 return rs.Emit()
             else:
-                ctx[rawio.prop_out] = "for some reason this didn't work out..."  # TODO stop conversation?
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop conversation?
         elif ctx[nlp.prop_yesno] == "no":
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("continue_order")
 
@@ -357,28 +356,25 @@ with rs.Module(name="Luigi"):
         payment_option = ctx[prop_payment_option]
         price = ctx[prop_price]
         if payment_option == PaymentOptions.PAYPAL:
-            ctx[rawio.prop_out] = "please follow the instructions on the screen below to complete your paypal payment."
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("paypal_option")
         if payment_option == PaymentOptions.COIN:
-            ctx[rawio.prop_out] = "please insert your coins in the slid below. attention, we don't give any change!"
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("coin_option")
         amount_paid, error_message = payment_communication(price, payment_option)
         if amount_paid == 0:
-            ctx[rawio.prop_out] = "you haven't paid me anything..."
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_payment")
         elif amount_paid < price:
-            ctx[rawio.prop_out] = "you still need to pay {amount_left_over}..." \
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("amount_left") \
                                   .format(amount_left_over=amount_in_euros_and_cents(price - amount_paid))
             ctx[prop_price] = price - amount_paid
         elif amount_paid == price:
-            ctx[rawio.prop_out] = "perfect amount, thanks for paying!"
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("perfect_amount")
             ctx[prop_payment_success] = True
         elif amount_paid > price:
-            ctx[rawio.prop_out] = "you paid {amount_too_much} more than needed but i cannot give you any change. "\
-                                  "we will give your money to an awesome robotic charity where they build robots " \
-                                  "that sell ice cream and do other crazy things!" \
-                                  .format(amount_too_much=amount_in_euros_and_cents(amount_paid - price))
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("better_amount")\
+                .format(amount_too_much=amount_in_euros_and_cents(amount_paid - price))
             ctx[prop_payment_success] = True
         elif error_message:
-            ctx[rawio.prop_out] = "for some reason our payment is not working today. lucky you, you get the ice cream" \
-                                  "for free then!"
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_payment")
         return rs.Emit()
 
     @rs.state(
