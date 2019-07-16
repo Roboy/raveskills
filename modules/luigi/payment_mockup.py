@@ -1,9 +1,11 @@
 import rospy
-from roboy_cognition_msgs.srv import *   # import Payment ?
+import time
+from roboy_cognition_msgs.srv import Payment, PaymentResponse
 
 
 def get_amount_inserted(req):
-    return PaymentResponse(self.coin_sum, "")    # TODO add test whether correct values were received, maybe return req?
+    time.sleep(2)
+    return PaymentResponse(242, "")  # if two scoops are ordered, 42 cents are returned
 
 
 if __name__ == "__main__":
