@@ -80,6 +80,11 @@ def test_legit_order():
             ravestate_ontology.initialized.wait()
             interloc.handle_single_interlocutor_input(ctx, "hi")
 
+        @rs.state(cond=rs.sig_startup, read=interloc.prop_all)
+        def luigi_bye(ctx: rs.ContextWrapper):
+            ravestate_ontology.initialized.wait()
+            interloc.handle_single_interlocutor_input(ctx, "bye")
+
         @rs.state(read=rawio.prop_out)
         def raw_out(ctx: rs.ContextWrapper):
             nonlocal last_output
@@ -98,7 +103,7 @@ def test_legit_order():
 
     @rs.receptor(ctx_wrap=ctx, write=rawio.prop_in)
     def say(ctx: rs.ContextWrapper, what: str):
-        ctx[rawio.prop_in] = what
+        interloc.handle_single_interlocutor_input(ctx, what)
 
     ctx.emit(rs.sig_startup)
     ctx.run_once()
@@ -138,12 +143,13 @@ def test_legit_order():
 
     # TODO Test payment
 
-    say("bye")
 
     # Wait for acknowledgement of answer
     while not raw_out.wait(.1):
         ctx.run_once()
     assert last_output in verbaliser.get_phrase_list("luigi_farewell")
+
+    assert luigi_bye.wait()
 
 
 def test_need_scoop():
