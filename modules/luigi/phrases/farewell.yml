@@ -1,12 +1,12 @@
 type: phrases
 name: "payment"
 opts:
-- "alrighty, payment time then! you owe me {cost} roboy coins for the {order}"
-- "wow it took some time. That will be {cost} roboy coins for the {order} "
-- "do you want some extra fries with that? just kidding {cost} roboy coins for the {order}"
-- "we are all set! i just need {cost} roboy coins for the {order}"
-- "wow it took some time. That will be {cost} roboy coins for the {order} "
-- "now for the for the {order} i will need {cost} roboy coins. sorry no money no ice cream!"
+- "alrighty, payment time then! you owe me {cost} euros for the {order}"
+- "wow it took some time. That will be {cost} euros for the {order} "
+- "do you want some extra fries with that? just kidding {cost} euros for the {order}"
+- "we are all set! i just need {cost} euros for the {order}"
+- "wow it took some time. That will be {cost} euros for the {order} "
+- "now for the for the {order} i will need {cost} euros. sorry no money no ice cream!"
 ---
 type: phrases
 name: "continue_order"
