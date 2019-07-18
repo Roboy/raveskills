@@ -22,6 +22,8 @@ config:
     - ravestate_hibye
     - ravestate_roboyio
     - luigi
+    - ravestate_roboyio
+    - ravestate_conio
   ros2-node-name: "ros2-node-name"
 
 ---
