@@ -58,6 +58,7 @@ with rs.Module(name="Luigi"):
     sig_has_arrived = rs.Signal("has_arrived")  # TODO ad team should send this once Roboy has arrived
     sig_ice_cream_desire = rs.Signal("ice_cream_desire")
     sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
+    sig_insert_coins = rs.Signal("insert_coins")
 
     # -------------------- states: detection -------------------- #
 
@@ -174,7 +175,7 @@ with rs.Module(name="Luigi"):
             return rs.Emit()
 
     @rs.state(
-        cond=nlp.prop_tokens.changed() & sig_start_payment.detached().max_age(-1),
+        cond=nlp.prop_tokens.changed(),#& sig_start_payment.detached().max_age(-1),
         read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas),
         write=prop_payment_option,
         signal=sig_changed_payment_option,
@@ -241,7 +242,7 @@ with rs.Module(name="Luigi"):
     # -------------------- states: conversation flow -------------------- #
 
     @rs.state(
-        cond=interloc.prop_all.pushed().detached().min_age(2) | idle.sig_bored.min_age(1),
+        cond=interloc.prop_all.pushed().detached().min_age(2),  # | idle.sig_bored.min_age(1),
         read=prop_suggested_ice_cream,
         write=(rawio.prop_out, prop_suggested_ice_cream),
         signal=sig_suggested_ice_cream,
@@ -344,17 +345,35 @@ with rs.Module(name="Luigi"):
             if success:
                 # TODO change verbalizer to add things like "here you go" or "enjoy" while handing over ice cream
                 # TODO add to verbalizer the question of how to pay
-                ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
-                                      format(cost=complete_cost, order=complete_order) + \
-                                      "\nhow would you like to pay? either coins or paypal are possible."
+                #ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
+                #                      format(cost=complete_cost, order=complete_order) + \
+                #                      "\nhow would you like to pay? either coins or paypal are possible."
+                ctx[rawio.prop_out] ="{} euros please. \nhow would you like to pay?".format(complete_cost)
                 return rs.Emit()
             else:
                 ctx[rawio.prop_out] = "for some reason this didn't work out..."  # TODO stop conversation?
         elif ctx[nlp.prop_yesno] == "no":
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("continue_order")
-
+    
     @rs.state(
         cond=sig_changed_payment_option.detached() | sig_payment_incomplete,
+        read=prop_payment_option,
+        write=rawio.prop_out,
+        signal=sig_insert_coins,
+        emit_detached=True)
+    def pre_payment_process(ctx: rs.ContextWrapper):
+        payment_option = ctx[prop_payment_option]
+        if payment_option == PaymentOptions.PAYPAL:
+            ctx[rawio.prop_out] = "please follow the instructions on the screen below to complete your paypal payment."
+            time.sleep(3)
+            return rs.Emit()
+        elif payment_option == PaymentOptions.COIN:
+            ctx[rawio.prop_out] = "please insert your coins in the slid below."# attention, we don't give any change!"
+            time.sleep(3)
+            return rs.Emit()
+
+    @rs.state(
+        cond=sig_insert_coins,
         read=(prop_payment_option, prop_price),
         write=(rawio.prop_out, prop_payment_success, prop_price),
         signal=sig_finished_payment,
@@ -362,10 +381,7 @@ with rs.Module(name="Luigi"):
     def payment_process(ctx: rs.ContextWrapper):
         payment_option = ctx[prop_payment_option]
         price = ctx[prop_price]
-        if payment_option == PaymentOptions.PAYPAL:
-            ctx[rawio.prop_out] = "please follow the instructions on the screen below to complete your paypal payment."
-        if payment_option == PaymentOptions.COIN:
-            ctx[rawio.prop_out] = "please insert your coins in the slid below. attention, we don't give any change!"
+        time.sleep(3)
         amount_paid, error_message = payment_communication(price, payment_option)
         if amount_paid == 0:
             ctx[rawio.prop_out] = "you haven't paid me anything..."

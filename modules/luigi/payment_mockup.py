@@ -9,6 +9,6 @@ def get_amount_inserted(req):
 
 
 if __name__ == "__main__":
-    rospy.init_node('payment_server')
-    rospy.Service('payment', Payment, get_amount_inserted)
+    rospy.init_node('payment_mockup_server')
+    rospy.Service('payment_mockup', Payment, get_amount_inserted)
     rospy.spin()

@@ -18,7 +18,7 @@ module: core
 config:
   tickrate: 10
   import:
-    - ravestate_fillers
+      # - ravestate_fillers
     - ravestate_hibye
     - luigi
     - ravestate_roboyio

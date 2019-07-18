@@ -4,6 +4,7 @@ import time
 
 
 def payment_communication(price, payment_option):
+    print("in payment communication - price: {} option: {}".format(price, payment_option))
     rospy.wait_for_service('payment')
     try:
         payment = rospy.ServiceProxy('payment', Payment)
