@@ -9,6 +9,14 @@ opts:
 - "now for the for the {order} i will need {cost} euros. sorry no money no ice cream! how do you want to pay?"
 ---
 type: phrases
+name: "unexpected"
+opts:
+- "ooops something went wrong"
+- "for some reason this didn't work out..."
+- "unfortunately there was a problem"
+- "something unexpected happened"
+---
+type: phrases
 name: "continue_order"
 opts:
 - "wow, you are quite hungry. then tell me what other ice cream you want!"

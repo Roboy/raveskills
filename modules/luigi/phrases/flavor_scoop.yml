@@ -9,6 +9,16 @@ opts:
 - "i've heard you! {order} is going to be prepared. is that all?"
 ---
 type: phrases
+name: "preparing_order"
+opts:
+- "alright, {order} coming right up!"
+- "here i go, {order} is being prepared!"
+- "deployment of {order} is confirmed. please stand by."
+- "i am preparing {order} then"
+- "{order} is coming soon. buckle up!"
+- "{order} is coming from coolest robot. please wait."
+---
+type: phrases
 name: "need_flavor"
 opts:
 - "it would be helpful if you also told me what flavor you want {scoop} scoop{s} of ..."
