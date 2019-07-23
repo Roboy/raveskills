@@ -49,7 +49,7 @@ with rs.Module(name="Luigi"):
 
     sig_start_order_question = rs.Signal("start_order_question")
     sig_finish_order_question = rs.Signal("finish_order_question")
-    sig_start_payment = rs.Signal("start_payment")
+    sig_start_payment= rs.Signal("start_payment")
     sig_finished_payment = rs.Signal("finished_payment")
     sig_payment_incomplete = rs.Signal("payment_incomplete")
     sig_yesno_detected = rs.Signal("yesno")
@@ -175,7 +175,7 @@ with rs.Module(name="Luigi"):
             return rs.Emit()
 
     @rs.state(
-        cond=nlp.prop_tokens.changed(),#& sig_start_payment.detached().max_age(-1),
+        cond=nlp.prop_tokens.changed(),
         read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas),
         write=prop_payment_option,
         signal=sig_changed_payment_option,
@@ -242,7 +242,7 @@ with rs.Module(name="Luigi"):
     # -------------------- states: conversation flow -------------------- #
 
     @rs.state(
-        cond=interloc.prop_all.pushed().detached().min_age(2),  # | idle.sig_bored.min_age(1),
+        cond=interloc.prop_all.pushed().detached().min_age(2) | idle.sig_bored.min_age(1),
         read=prop_suggested_ice_cream,
         write=(rawio.prop_out, prop_suggested_ice_cream),
         signal=sig_suggested_ice_cream,
@@ -331,44 +331,49 @@ with rs.Module(name="Luigi"):
        cond=sig_finish_order_question.max_age(-1) & sig_yesno_detected,
        read=(prop_flavor_scoop_tuple_list, nlp.prop_yesno),
        write=(rawio.prop_out, prop_price),
-       emit_detached=True,
-       signal=sig_start_payment)
+       signal=sig_start_payment,
+       emit_detached=True)
     def analyse_finish_order_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno] == "yes":
             flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
             complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
             ctx[rawio.prop_out] = "alright, {order} coming right up!".format(order=complete_order)  # TODO verbalizer
             ctx[prop_price] = complete_cost * 100   # price is in cents
-            flavors = [x for x, _ in flavor_scoop_tuple_list]
-            scoops = [y for _, y in flavor_scoop_tuple_list]
-            success, error_message = scooping_communication(flavors, scoops)
-            if success:
-                # TODO change verbalizer to add things like "here you go" or "enjoy" while handing over ice cream
-                # TODO add to verbalizer the question of how to pay
-                #ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
-                #                      format(cost=complete_cost, order=complete_order) + \
-                #                      "\nhow would you like to pay? either coins or paypal are possible."
-                ctx[rawio.prop_out] ="{} euros please. \nhow would you like to pay?".format(complete_cost)
-                return rs.Emit()
-            else:
-                ctx[rawio.prop_out] = "for some reason this didn't work out..."  # TODO stop conversation?
+            return rs.Emit()
         elif ctx[nlp.prop_yesno] == "no":
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("continue_order")
-    
+
+    @rs.state(
+        cond=sig_start_payment,
+        read=prop_flavor_scoop_tuple_list,
+        write=rawio.prop_out)
+    def ask_payment_method(ctx: rs.ContextWrapper):
+        flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
+        complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
+        flavors = [x for x, _ in flavor_scoop_tuple_list]
+        scoops = [y for _, y in flavor_scoop_tuple_list]
+        success, error_message = scooping_communication(flavors, scoops)
+        if success:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
+                                 format(cost=complete_cost, order=complete_order)
+        else:
+            ctx[rawio.prop_out] = "for some reason this didn't work out..."  # TODO stop conversation?
+
     @rs.state(
         cond=sig_changed_payment_option.detached() | sig_payment_incomplete,
         read=prop_payment_option,
         write=rawio.prop_out,
         signal=sig_insert_coins,
         emit_detached=True)
-    def pre_payment_process(ctx: rs.ContextWrapper):
+    def start_payment(ctx: rs.ContextWrapper):
+        # TODO add verbalizer for both cases below
         payment_option = ctx[prop_payment_option]
         if payment_option == PaymentOptions.PAYPAL:
             ctx[rawio.prop_out] = "please follow the instructions on the screen below to complete your paypal payment."
             time.sleep(3)
             return rs.Emit()
         elif payment_option == PaymentOptions.COIN:
-            ctx[rawio.prop_out] = "please insert your coins in the slid below."# attention, we don't give any change!"
+            ctx[rawio.prop_out] = "please insert your coins in the slid below."
             time.sleep(3)
             return rs.Emit()
 
@@ -379,6 +384,7 @@ with rs.Module(name="Luigi"):
         signal=sig_finished_payment,
         emit_detached=True)
     def payment_process(ctx: rs.ContextWrapper):
+        # TODO add verbalizer for all cases below
         payment_option = ctx[prop_payment_option]
         price = ctx[prop_price]
         time.sleep(3)
@@ -394,8 +400,6 @@ with rs.Module(name="Luigi"):
             ctx[prop_payment_success] = True
         elif amount_paid > price:
             ctx[rawio.prop_out] = "you paid {amount_too_much} more than needed but i cannot give you any change. "\
-                                  "we will give your money to an awesome robotic charity where they build robots " \
-                                  "that sell ice cream and do other crazy things!" \
                                   .format(amount_too_much=amount_in_euros_and_cents(amount_paid - price))
             ctx[prop_payment_success] = True
         elif error_message:
