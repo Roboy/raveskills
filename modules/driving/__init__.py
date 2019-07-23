@@ -142,7 +142,7 @@ with rs.Module(name="Luigi"):
         cond=sig_start_order_question.max_age(-1),
         write=rawio.prop_out)
     def ask_for_location(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = "just tell me where i can meet you!"
+        ctx[rawio.prop_out] = verbaliser.get_random_question("location_qa")
 
     @rs.state(
         read=prop_location,
@@ -152,10 +152,9 @@ with rs.Module(name="Luigi"):
     def known_location(ctx: rs.ContextWrapper):
         location = ctx[prop_location]
         if location == "unknown":
-            ctx[rawio.prop_out] = "hmm, i didn't understand where you are... " \
-                                  "maybe i can meet you at a spot everyone knows?"
+            ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("location_qa")
         else:
-            ctx[rawio.prop_out] = "i will be at {location} in {min} minutes, see you then!" \
+            ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location_qa") \
                 .format(location=location, min=get_arrival_time())
             return rs.Emit()
 

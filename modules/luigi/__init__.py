@@ -278,12 +278,6 @@ with rs.Module(name="Luigi"):
         ctx[rawio.prop_out] = "you are talking to the right person, i can get you some ice cream!"
         return rs.Emit()
 
-    @rs.state(
-        cond=sig_start_order_question.max_age(-1) & sig_suggested_ice_cream.detached().max_age(-1)
-             | sig_has_arrived.detached().min_age(2),
-        write=rawio.prop_out)
-    def start_order(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = "what can i get you?"
 
     @rs.state(
         cond=sig_has_arrived,
@@ -305,8 +299,7 @@ with rs.Module(name="Luigi"):
             ctx[prop_flavors] = []
             ctx[prop_scoops] = []
             possibly_complete_order, _ = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
-            # TODO: change yml file for order
-            ctx[rawio.prop_out] = "{order} will be delicious! is that all?".format(order=possibly_complete_order)
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("legit_order").format(order=possibly_complete_order)
             return rs.Emit()
         elif len(prop_flavors.read()) > len(prop_scoops.read()):
             current_order = [(prop_flavors.read()[i], prop_scoops.read()[i]) for i in range(0, len(prop_scoops.read()))]
@@ -322,10 +315,11 @@ with rs.Module(name="Luigi"):
             ctx[prop_scoops] = prop_scoops.read()[len(prop_flavors.read()):]
             ctx[prop_flavors] = []
             if prop_scoops.read()[0] == 1:
-                ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_flavor").format(scoop=prop_scoops.read()[0])
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_flavor").format(scoop=prop_scoops.read()[0],
+                                                                                         s="")
             else:
-                ctx[rawio.prop_out] = "it would be helpful if you also told me what flavor you want {scoops} scoops " \
-                                  "of...".format(scoops=prop_scoops.read()[0])  # TODO: Change yml file for scoops
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_flavor").format(scoop=prop_scoops.read()[0],
+                                                                                         s="s")
 
     @rs.state(
        cond=sig_finish_order_question.max_age(-1) & sig_yesno_detected,
@@ -417,7 +411,7 @@ with rs.Module(name="Luigi"):
     def after_payment(ctx: rs.ContextWrapper):
         payment_success = ctx[prop_payment_success]
         if payment_success:
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("farewell")
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("luigi_farewell")
             ctx[prop_flavor_scoop_tuple_list] = []
             ctx[prop_flavors] = []
             ctx[prop_scoops] = []

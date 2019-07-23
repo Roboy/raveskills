@@ -1,16 +1,22 @@
 type: phrases
 name: "legit_order"
 opts:
-- "{scoops} scoops of the {flavor} will be delicious! is that all?"
-- "wow you are quite a picker! {scoops} scoops of the {flavor} then! are we done?"
-- "not a bad choice! {scoops} scoops of the {flavor} sound delicious. are we good to go?"
+- "{order} will be delicious! is that all?"
+- "wow you are quite a picker! {order} then! are we done?"
+- "not a bad choice! {order} sound delicious. are we good to go?"
+- "{order} coming right up! is that all?"
+- "i am going to prepare {order} now. is that all?"
+- "i've heard you! {order} is going to be prepared. is that all?"
 ---
 type: phrases
 name: "need_flavor"
 opts:
-- "it would be helpful if you also told me what flavor you want {scoops} scoops of ..."
-- "you forgot the most important part! what {scoops} scoops of flavor you want?"
-- "{scoops} scoops of what exactly? could you tell me also a flavor?"
+- "it would be helpful if you also told me what flavor you want {scoop} scoop{s} of ..."
+- "you forgot the most important part! what {scoop} scoop{s} of flavor you want?"
+- "{scoop} scoop{s} of what exactly? could you tell me also a flavor?"
+- "ground control to major tom. I got you want {scoop} scoop{s}. now it's time to tell me what flavor you want"
+- "I heard you want {scoop} scoop{s}. But what flavor exactly?"
+- "you know some numbers that is good. could you also tell me a flavor?"
 ---
 type: phrases
 name: "need_scoop"
@@ -18,3 +24,7 @@ opts:
 - "{flavor} is also one of my favorites! can you also tell me how many scoops you want?"
 - "hard part is over! okay you want {flavor}, could you also tell me how many scoops you want?"
 - "{flavor} is quite a good choice! but i also will need scoop count..."
+- "ground control to major tom. I got your {flavor}. now it's time to tell me how many scoops you want."
+- "{flavor} is not a bad choice. now tell me how many scoops you want please."
+- "I heard you want some {flavor}. could you also tell me how many scoops you want?"
+- "{flavor} is noted. now i would like to learn how many scoops you want."
