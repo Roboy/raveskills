@@ -33,7 +33,7 @@ with rs.Module(name="Luigi"):
 
     # ----------- ROS scooping action client ---------------------
 
-    rospy.init_node('scooping_client_py') # i am not sure about this, maybe you already have a node somewhere
+    rospy.init_node('scooping_client_py')
     client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
     client.wait_for_server()
 
@@ -340,6 +340,7 @@ with rs.Module(name="Luigi"):
         if ctx[nlp.prop_yesno] == "yes":
             flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
             complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
+            # TODO ıt skips prepare order in tests
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("preparing_order").format(order=complete_order)
             ctx[prop_price] = complete_cost * 100   # price is in cents
             return rs.Emit()
@@ -347,7 +348,7 @@ with rs.Module(name="Luigi"):
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("continue_order")
 
     @rs.state(
-        cond=sig_start_payment,
+        cond=sig_start_payment.min_age(.5),
         read=prop_flavor_scoop_tuple_list,
         write=rawio.prop_out)
     def ask_payment_method(ctx: rs.ContextWrapper):

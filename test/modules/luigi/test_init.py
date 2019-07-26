@@ -15,16 +15,158 @@ from os.path import realpath, dirname, join
 
 verbaliser.add_folder(join(dirname(realpath(__file__)) + "/phrases"))
 
-#TODO make an assertion after test is finished in decline offer,(after decline offer test it is stuck on infinite loop)
 
-# def test_decline_offer():
+def test_decline_offer():
+    last_output = ""
+
+    with rs.Module(name="luigi_test"):
+
+        @rs.state(cond=rs.sig_startup, read=interloc.prop_all)
+        def luigi_hi(ctx: rs.ContextWrapper):
+            ravestate_ontology.initialized.wait()
+            interloc.handle_single_interlocutor_input(ctx, "hi")
+
+        @rs.state(cond=rs.sig_shutdown, read=interloc.prop_all)
+        def luigi_bye(ctx: rs.ContextWrapper):
+            interloc.handle_single_interlocutor_input(ctx, "bye")
+
+        @rs.state(read=rawio.prop_out)
+        def raw_out(ctx: rs.ContextWrapper):
+            nonlocal last_output
+            last_output = ctx[rawio.prop_out]
+            logger.info(f"Output: {ctx[rawio.prop_out]}")
+
+    ctx = rs.Context(
+        "rawio",
+        "ontology",
+        "idle",
+        "interloc",
+        "nlp",
+        "Luigi",
+        "luigi_test"
+    )
+
+    @rs.receptor(ctx_wrap=ctx, write=rawio.prop_in)
+    def say(ctx: rs.ContextWrapper, what: str):
+        ctx[rawio.prop_in] = what
+
+    ctx.emit(rs.sig_startup)
+    ctx.run_once()
+
+    assert luigi_hi.wait()
+
+    # Wait for greeting
+    while not raw_out.wait(.1):
+        ctx.run_once()
+    assert last_output in verbaliser.get_question_list("greet_general")
+
+    say("no")
+
+    # Wait for acknowledgement of answer
+    while not raw_out.wait(.1):
+        ctx.run_once()
+    assert last_output in verbaliser.get_failure_answer_list("greet_general")
+
+    ctx.run_once()
+    assert luigi.analyse_ice_cream_suggestion_answer.wait()
+
+    ctx.emit(rs.sig_shutdown)
+    ctx.run_once()
+    assert luigi_bye.wait()
+
+    ctx.run_once()
+    assert luigi.customer_left.wait()
+
+def test_legit_order():
+    last_output = ""
+
+    with rs.Module(name="luigi_test"):
+
+        @rs.state(cond=rs.sig_startup, read=interloc.prop_all)
+        def luigi_hi(ctx: rs.ContextWrapper):
+            ravestate_ontology.initialized.wait()
+            interloc.handle_single_interlocutor_input(ctx, "hi")
+
+        @rs.state(cond=rs.sig_shutdown, read=interloc.prop_all)
+        def luigi_bye(ctx: rs.ContextWrapper):
+            interloc.handle_single_interlocutor_input(ctx, "bye")
+
+        @rs.state(read=rawio.prop_out)
+        def raw_out(ctx: rs.ContextWrapper):
+            nonlocal last_output
+            last_output = ctx[rawio.prop_out]
+            logger.info(f"Output: {ctx[rawio.prop_out]}")
+
+    ctx = rs.Context(
+        "rawio",
+        "ontology",
+        "idle",
+        "interloc",
+        "nlp",
+        "Luigi",
+        "luigi_test"
+    )
+
+    @rs.receptor(ctx_wrap=ctx, write=rawio.prop_in)
+    def say(ctx: rs.ContextWrapper, what: str):
+        ctx[rawio.prop_in] = what
+
+    ctx.emit(rs.sig_startup)
+    ctx.run_once()
+
+    assert luigi_hi.wait()
+
+    # Wait for greeting
+    while not raw_out.wait(.1):
+        ctx.run_once()
+    assert last_output in verbaliser.get_question_list("greet_general")
+
+    say("yes")
+
+    # Wait for acknowledgement of answer
+    while not raw_out.wait(.1):
+        ctx.run_once()
+    assert luigi.analyse_ice_cream_suggestion_answer.wait()
+    assert last_output in verbaliser.get_successful_answer_list("greet_general")
+
+    say("three scoops of vanilla")
+
+    # Wait for acknowledgement of answer
+    while not raw_out.wait(.1):
+        ctx.run_once()
+    assert luigi.detect_flavors_and_scoops.wait()
+    assert last_output.replace("3 scoops of vanilla", "{order}") in verbaliser.get_phrase_list("legit_order")
+
+    say("yes")
+
+    # Wait for acknowledgement of answer
+    while not raw_out.wait(0.1):
+        ctx.run_once()
+
+    assert luigi.analyse_finish_order_answer.wait()
+    assert last_output.replace("3 scoops of vanilla", "{order}") in verbaliser.get_phrase_list("preparing_order")
+
+    ctx.emit(rs.sig_shutdown)
+    ctx.run_once()
+    assert luigi_bye.wait()
+
+    ctx.run_once()
+    assert luigi.customer_left.wait()
+
+# def test_payment():
 #     last_output = ""
+#     sig_start_payment = rs.Signal("start_payment")
 #
 #     with rs.Module(name="luigi_test"):
+#
 #         @rs.state(cond=rs.sig_startup, read=interloc.prop_all)
 #         def luigi_hi(ctx: rs.ContextWrapper):
 #             ravestate_ontology.initialized.wait()
 #             interloc.handle_single_interlocutor_input(ctx, "hi")
+#
+#         @rs.state(cond=rs.sig_shutdown, read=interloc.prop_all)
+#         def luigi_bye(ctx: rs.ContextWrapper):
+#             interloc.handle_single_interlocutor_input(ctx, "bye")
 #
 #         @rs.state(read=rawio.prop_out)
 #         def raw_out(ctx: rs.ContextWrapper):
@@ -54,23 +196,42 @@ verbaliser.add_folder(join(dirname(realpath(__file__)) + "/phrases"))
 #     # Wait for greeting
 #     while not raw_out.wait(.1):
 #         ctx.run_once()
-#     assert last_output in verbaliser.get_question_list("greet_general")
 #
-#     say("no")
+#     ctx.emit(sig_start_payment)
 #
-#     # Wait for acknowledgement of order
-#     while not raw_out.wait(.1):
-#         ctx.run_once()
-#
-#     assert last_output in verbaliser.verbaliser.get_random_failure_answer("greet_general")
-#
-#     say("bye")
+#     say("coin")
 #
 #     # Wait for acknowledgement of answer
 #     while not raw_out.wait(.1):
 #         ctx.run_once()
+#     assert luigi.analyse_ice_cream_suggestion_answer.wait()
+#     assert last_output in verbaliser.get_successful_answer_list("greet_general")
+#
+#     say("three scoops of vanilla")
+#
+#     # Wait for acknowledgement of answer
+#     while not raw_out.wait(.1):
+#         ctx.run_once()
+#     assert luigi.detect_flavors_and_scoops.wait()
+#     assert last_output.replace("3 scoops of vanilla", "{order}") in verbaliser.get_phrase_list("legit_order")
+#
+#     say("yes")
+#
+#     # Wait for acknowledgement of answer
+#     while not raw_out.wait(.1):
+#         ctx.run_once()
+#     assert luigi.analyse_finish_order_answer.wait()
+#     assert last_output.replace("3 scoops of vanilla", "{order}") in verbaliser.get_phrase_list("preparing_order")
+#
+#     ctx.emit(rs.sig_shutdown)
+#     ctx.run_once()
+#     assert luigi_bye.wait()
+#
+#     ctx.run_once()
+#     assert luigi.customer_left.wait()
 
-def test_legit_order():
+
+def test_need_scoop():
     last_output = ""
 
     with rs.Module(name="luigi_test"):
@@ -80,9 +241,8 @@ def test_legit_order():
             ravestate_ontology.initialized.wait()
             interloc.handle_single_interlocutor_input(ctx, "hi")
 
-        @rs.state(cond=rs.sig_startup, read=interloc.prop_all)
+        @rs.state(cond=rs.sig_shutdown, read=interloc.prop_all)
         def luigi_bye(ctx: rs.ContextWrapper):
-            ravestate_ontology.initialized.wait()
             interloc.handle_single_interlocutor_input(ctx, "bye")
 
         @rs.state(read=rawio.prop_out)
@@ -103,83 +263,6 @@ def test_legit_order():
 
     @rs.receptor(ctx_wrap=ctx, write=rawio.prop_in)
     def say(ctx: rs.ContextWrapper, what: str):
-        interloc.handle_single_interlocutor_input(ctx, what)
-
-    ctx.emit(rs.sig_startup)
-    ctx.run_once()
-
-    assert luigi_hi.wait()
-
-    # Wait for greeting
-    while not raw_out.wait(.1):
-        ctx.run_once()
-    assert last_output in verbaliser.get_question_list("greet_general")
-
-    say("yes")
-
-    # Wait for acknowledgement of answer
-    while not raw_out.wait(.1):
-        ctx.run_once()
-
-    # Legit order
-
-    say("three scoops of vanilla please")
-
-    # Wait for acknowledgement of order
-    while not raw_out.wait(.1):
-        ctx.run_once()
-
-    assert luigi.detect_flavors_and_scoops.wait(0)
-    assert last_output.replace("3 scoops of vanilla", "{order}") in verbaliser.get_phrase_list("legit_order")
-
-    say("yes")
-
-    # Wait for acknowledgement of answer
-    while not raw_out.wait(.1):
-        ctx.run_once()
-
-    assert last_output.replace("3 scoops of vanilla", "{order}").replace("3", "{cost}") in \
-           verbaliser.get_phrase_list("payment")
-
-    # TODO Test payment
-
-
-    # Wait for acknowledgement of answer
-    while not raw_out.wait(.1):
-        ctx.run_once()
-    assert last_output in verbaliser.get_phrase_list("luigi_farewell")
-
-    assert luigi_bye.wait()
-
-
-def test_need_scoop():
-    last_output = ""
-
-    with rs.Module(name="luigi_test"):
-
-        @rs.state(cond=rs.sig_startup, read=interloc.prop_all)
-        def luigi_hi(ctx: rs.ContextWrapper):
-            ravestate_ontology.initialized.wait()
-            interloc.handle_single_interlocutor_input(ctx, "hi")
-
-        @rs.state(read=rawio.prop_out)
-        def raw_out(ctx: rs.ContextWrapper):
-            nonlocal last_output
-            last_output = ctx[rawio.prop_out]
-            logger.info(f"Output: {ctx[rawio.prop_out]}")
-
-    ctx = rs.Context(
-        "rawio",
-        "ontology",
-        "idle",
-        "interloc",
-        "nlp",
-        "Luigi",
-        "luigi_test"
-    )
-
-    @rs.receptor(ctx_wrap=ctx, write=rawio.prop_in)
-    def say(ctx: rs.ContextWrapper, what: str):
         ctx[rawio.prop_in] = what
 
     ctx.emit(rs.sig_startup)
@@ -187,16 +270,18 @@ def test_need_scoop():
 
     assert luigi_hi.wait()
 
+    # Wait for greeting
+    while not raw_out.wait(.1):
+        ctx.run_once()
+    assert last_output in verbaliser.get_question_list("greet_general")
+
     say("yes")
 
     # Wait for acknowledgement of answer
     while not raw_out.wait(.1):
         ctx.run_once()
-
-    # Wait for greeting
-    while not raw_out.wait(.1):
-        ctx.run_once()
-    assert last_output in verbaliser.get_question_list("greet_general")
+    assert luigi.analyse_ice_cream_suggestion_answer.wait()
+    assert last_output in verbaliser.get_successful_answer_list("greet_general")
 
     # Only give flavor
 
@@ -205,6 +290,8 @@ def test_need_scoop():
     # Wait for acknowledgement of flavor
     while not raw_out.wait(.1):
         ctx.run_once()
+    assert luigi.detect_flavors_and_scoops.wait()
+    assert luigi.check_scoops_flavor_combined.wait()
     assert last_output.replace("vanilla", "{flavor}") in verbaliser.get_phrase_list("need_scoop")
 
     # Give scoop count
@@ -214,6 +301,8 @@ def test_need_scoop():
     # Wait for acknowledgement of scoop
     while not raw_out.wait(.1):
         ctx.run_once()
+    assert luigi.detect_flavors_and_scoops.wait()
+    assert luigi.check_scoops_flavor_combined.wait()
     assert last_output.replace("3 scoops of vanilla", "{order}") in \
            verbaliser.get_phrase_list("legit_order")
 
@@ -224,6 +313,13 @@ def test_need_scoop():
     # Wait for acknowledgement of answer
     while not raw_out.wait(.1):
         ctx.run_once()
+
+    ctx.emit(rs.sig_shutdown)
+    ctx.run_once()
+    assert luigi_bye.wait()
+
+    ctx.run_once()
+    assert luigi.customer_left.wait()
 
 
 def test_need_flavor():
@@ -236,6 +332,10 @@ def test_need_flavor():
             ravestate_ontology.initialized.wait()
             interloc.handle_single_interlocutor_input(ctx, "hi")
 
+        @rs.state(cond=rs.sig_shutdown, read=interloc.prop_all)
+        def luigi_bye(ctx: rs.ContextWrapper):
+            interloc.handle_single_interlocutor_input(ctx, "bye")
+
         @rs.state(read=rawio.prop_out)
         def raw_out(ctx: rs.ContextWrapper):
             nonlocal last_output
@@ -261,63 +361,59 @@ def test_need_flavor():
 
     assert luigi_hi.wait()
 
-    # Wait for name being asked
+    # Wait for greeting
     while not raw_out.wait(.1):
         ctx.run_once()
     assert last_output in verbaliser.get_question_list("greet_general")
 
-    # Only give one scoop
-
-    say("one")
+    say("yes")
 
     # Wait for acknowledgement of answer
     while not raw_out.wait(.1):
         ctx.run_once()
+    assert luigi.analyse_ice_cream_suggestion_answer.wait()
+    assert last_output in verbaliser.get_successful_answer_list("greet_general")
 
-    assert last_output.replace("scoop", "scoop{s}").replace("1", "{scoop}") in verbaliser.get_phrase_list("need_flavor")
-
-    say("vanilla")
-
-    # Wait for acknowledgement of scoop
-    while not raw_out.wait(.1):
-        ctx.run_once()
-
-    assert last_output.replace("1 scoop of vanilla", "{order}") in verbaliser.get_phrase_list("legit_order")
-
-    # Only give four scoop
-
-    say("no")
-
-    # Wait for acknowledgement of answer
-    while not raw_out.wait(.1):
-        ctx.run_once()
+    # Only give flavor
 
     say("four")
 
-    # Wait for acknowledgement of answer
+    # Wait for acknowledgement of flavor
     while not raw_out.wait(.1):
         ctx.run_once()
+    assert luigi.detect_flavors_and_scoops.wait()
+    assert luigi.check_scoops_flavor_combined.wait()
+    assert last_output.replace("scoops", "scoop{s}").replace("4", "{scoop}") in verbaliser.get_phrase_list("need_flavor")
 
-    assert last_output.replace("scoops", "scoop{s}").replace("4", "{scoop}") in verbaliser.get_phrase_list(
-        "need_flavor")
+    # Give scoop count
 
     say("chocolate")
 
     # Wait for acknowledgement of scoop
     while not raw_out.wait(.1):
         ctx.run_once()
+    assert luigi.detect_flavors_and_scoops.wait()
+    assert luigi.check_scoops_flavor_combined.wait()
+    assert last_output.replace("4 scoops of chocolate", "{order}") in \
+           verbaliser.get_phrase_list("legit_order")
 
-    assert last_output.replace("4 scoops of chocolate and 1 scoop of vanilla", "{order}") \
-           in verbaliser.get_phrase_list("legit_order")
+    # Order is finished
 
     say("yes")
 
-    # Wait for acknowledgement of scoop
+    # Wait for acknowledgement of answer
     while not raw_out.wait(.1):
         ctx.run_once()
 
+    ctx.emit(rs.sig_shutdown)
+    ctx.run_once()
+    assert luigi_bye.wait()
 
-def test_legit_order_need_scoop_get_order_farewell():
+    ctx.run_once()
+    assert luigi.customer_left.wait()
+
+
+def test_legit_order_need_flavor():
     last_output = ""
 
     with rs.Module(name="luigi_test"):
@@ -326,6 +422,10 @@ def test_legit_order_need_scoop_get_order_farewell():
         def luigi_hi(ctx: rs.ContextWrapper):
             ravestate_ontology.initialized.wait()
             interloc.handle_single_interlocutor_input(ctx, "hi")
+
+        @rs.state(cond=rs.sig_shutdown, read=interloc.prop_all)
+        def luigi_bye(ctx: rs.ContextWrapper):
+            interloc.handle_single_interlocutor_input(ctx, "bye")
 
         @rs.state(read=rawio.prop_out)
         def raw_out(ctx: rs.ContextWrapper):
@@ -365,7 +465,8 @@ def test_legit_order_need_scoop_get_order_farewell():
     while not raw_out.wait(.1):
         ctx.run_once()
 
-    assert luigi.detect_flavors_and_scoops.wait(0)
+    assert luigi.detect_flavors_and_scoops.wait()
+    assert luigi.check_scoops_flavor_combined.wait()
     assert last_output.replace("2 scoops of chocolate", "{order}") in verbaliser.get_phrase_list("legit_order")
 
     say("no")
@@ -373,24 +474,28 @@ def test_legit_order_need_scoop_get_order_farewell():
     # Wait for acknowledgement of answer
     while not raw_out.wait(.1):
         ctx.run_once()
-
+    assert luigi.analyse_finish_order_answer.wait()
+    assert last_output in verbaliser.get_phrase_list("continue_order")
     # Only give flavor
 
-    say("vanilla")
+    say("one")
 
     # Wait for acknowledgement of flavor
     while not raw_out.wait(.1):
         ctx.run_once()
-    assert last_output.replace("vanilla", "{flavor}") in verbaliser.get_phrase_list("need_scoop")
+    assert luigi.detect_flavors_and_scoops.wait()
+    assert last_output.replace("scoop", "scoop{s}").replace("1", "{scoop}") in verbaliser.get_phrase_list("need_flavor")
 
     # Only give scoops
 
-    say("three")
+    say("vanilla")
 
     # Wait for acknowledgement of scoop
     while not raw_out.wait(.1):
         ctx.run_once()
-    assert last_output.replace("3 scoops of vanilla and 2 scoops of chocolate", "{order}") in \
+    assert luigi.detect_flavors_and_scoops.wait()
+    assert luigi.check_scoops_flavor_combined.wait()
+    assert last_output.replace("1 scoop of vanilla and 2 scoops of chocolate", "{order}") in \
            verbaliser.get_phrase_list("legit_order")
 
     # Order is finished
@@ -400,23 +505,22 @@ def test_legit_order_need_scoop_get_order_farewell():
     # Wait for acknowledgement of answer
     while not raw_out.wait(.1):
         ctx.run_once()
-    assert last_output.replace("5", "{cost}").replace("3 scoops of vanilla and 2 scoops of chocolate", "{order}") in \
-           verbaliser.get_phrase_list("payment")
 
-    # TODO Test payment
+    ctx.emit(rs.sig_shutdown)
+    ctx.run_once()
+    assert luigi_bye.wait()
 
-    say("bye")
-
-    # Wait for acknowledgement of answer
-    while not raw_out.wait(.1):
-        ctx.run_once()
-    assert last_output in verbaliser.get_phrase_list("luigi_farewell")
+    ctx.run_once()
+    assert luigi.customer_left.wait()
 
 
 if __name__ == "__main__":
     # from hanging_threads import start_monitoring
     # monitoring_thread = start_monitoring()
     set_default_loglevel("DEBUG")
-    test_legit_order_need_scoop_get_order_farewell()
+    test_decline_offer()
+    test_legit_order()
+    test_need_scoop()
     test_need_flavor()
+    test_legit_order_need_flavor()
     exit()
