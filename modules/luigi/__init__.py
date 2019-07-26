@@ -3,9 +3,11 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
+import rospy
+import actionlib
+from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
+from roboy_cognition_msgs.srv import Payment
 from enum import IntEnum
-from luigi.payment_client import *
-from luigi.scooping_client import *
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
@@ -28,6 +30,12 @@ class PaymentOptions(IntEnum):
 
 
 with rs.Module(name="Luigi"):
+
+    # ----------- ROS scooping action client ---------------------
+
+    rospy.init_node('scooping_client_py') # i am not sure about this, maybe you already have a node somewhere
+    client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
+    client.wait_for_server()
 
     # -------------------- properties -------------------- #
 
@@ -347,12 +355,17 @@ with rs.Module(name="Luigi"):
         complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
         flavors = [x for x, _ in flavor_scoop_tuple_list]
         scoops = [y for _, y in flavor_scoop_tuple_list]
-        success, error_message = scooping_client_start(flavors, scoops)
-        if success:
+        goal = OrderIceCreamGoal()  # use the action client declared in the beginning of the module
+        goal.flavors = flavors
+        goal.scoops = scoops
+        client.send_goal(goal, feedback_cb=scooping_feedback_cb)
+        client.wait_for_result()
+        result = client.get_result()
+        if result.success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
-                                 format(cost=complete_cost, order=complete_order)
+                format(cost=complete_cost, order=complete_order)
         else:
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop conversation?
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop convo? output result.error?
 
     @rs.state(
         cond=sig_changed_payment_option.detached() | sig_payment_incomplete,
@@ -529,3 +542,22 @@ def amount_in_euros_and_cents(amount):
         return "{euros} {euro_string}".format(euros=euros, euro_string=euro_string)
     elif cents:
         return "{cents} {cent_string}".format(cents=cents, cent_string=cent_string)
+
+
+def scooping_feedback_cb(feedback):
+    # TODO do something with the feedback like writing it to a global value that can be checked by an abort-state
+    print('Feedback:', list(feedback.finished_flavors))
+
+
+def payment_communication(price, payment_option):
+    rospy.wait_for_service('payment')
+    try:
+        payment = rospy.ServiceProxy('payment', Payment)
+        response = payment(np.uint16(price), np.uint8(payment_option))
+        return response.amount_paid, response.error_message
+    except rospy.ROSInterruptException as e:
+        print('Service call failed:', e)
+    # If luigi module is run without ROS, comment everything from above (including imports) and uncomment this:
+    # print("in payment communication - price: {} option: {}".format(price, payment_option))
+    # time.sleep(4)
+    # return 220, ""
