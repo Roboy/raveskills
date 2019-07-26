@@ -3,8 +3,9 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
-from enum import Enum
-from luigi.communication import *
+from enum import IntEnum
+from luigi.payment_client import *
+from luigi.scooping_client import *
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
@@ -21,7 +22,7 @@ PAYMENT_OPTION_SYNONYMS = {"paypal", "cash", "coins", "coin", "money"}
 PAY_SYNONYMS = {"pay", "want pay", "pay will", "pay can", "pay could", "use will", "like pay"}
 
 
-class PaymentOptions(Enum):
+class PaymentOptions(IntEnum):
     COIN = 0
     PAYPAL = 1
 
@@ -346,7 +347,7 @@ with rs.Module(name="Luigi"):
         complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
         flavors = [x for x, _ in flavor_scoop_tuple_list]
         scoops = [y for _, y in flavor_scoop_tuple_list]
-        success, error_message = scooping_communication(flavors, scoops)
+        success, error_message = scooping_client_start(flavors, scoops)
         if success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
                                  format(cost=complete_cost, order=complete_order)

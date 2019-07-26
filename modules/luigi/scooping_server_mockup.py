@@ -1,6 +1,6 @@
 import rospy
 import actionlib
-from roboy_cognition_msgs.action import OrderIceCreamAction, OrderIceCreamFeedback, OrderIceCreamResult
+from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamFeedback, OrderIceCreamResult
 import time
 
 
@@ -12,6 +12,7 @@ class ScoopingActionServer:
         self.a_server.start()
 
     def execute_cb(self, goal):
+        print("in execute_cb - goal: ", goal)
         success = True
         feedback = OrderIceCreamFeedback()
         rate = rospy.Rate(1)
@@ -30,12 +31,12 @@ class ScoopingActionServer:
 
         result = OrderIceCreamResult()
         result.success = True
-        result.error_message = ""
+        result.error_message = "test"
         if success:
             self.a_server.set_succeeded(result)
 
 
 if __name__ == "__main__":
-    rospy.init_node("scooping_action_server")
+    rospy.init_node("scooping")
     s = ScoopingActionServer()
     rospy.spin()
