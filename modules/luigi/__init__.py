@@ -113,7 +113,7 @@ with rs.Module(name="Luigi"):
     @rs.state(
         cond=nlp.prop_tokens.changed(),
         read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas, nlp.prop_ner, prop_flavors, prop_scoops),
-        write=(prop_flavors, prop_scoops),
+        write=(rawio.prop_out, prop_flavors, prop_scoops),
         signal=sig_changed_flavor_or_scoops,
         emit_detached=True)
     def detect_flavors_and_scoops(ctx: rs.ContextWrapper):
@@ -175,13 +175,16 @@ with rs.Module(name="Luigi"):
         if ice_cream_order:
             flavors = extract_flavors(tokens)
             scoops = extract_scoops(ner)
-            if "each" in tokens and len(scoops) == 1:
-                scoops *= len(flavors)
-            if flavors:
-                ctx[prop_flavors] = prop_flavors.read() + flavors
-            if scoops:
-                ctx[prop_scoops] = prop_scoops.read() + scoops
-            return rs.Emit()
+            if -1 in scoops:
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_scoops")
+            else:
+                if "each" in tokens and len(scoops) == 1:
+                    scoops *= len(flavors)
+                if flavors:
+                    ctx[prop_flavors] = prop_flavors.read() + flavors
+                if scoops:
+                    ctx[prop_scoops] = prop_scoops.read() + scoops
+                return rs.Emit()
 
     @rs.state(
         cond=nlp.prop_tokens.changed(),
@@ -495,7 +498,10 @@ def extract_scoops(prop_ner):
     scoops = []
     for entity, NE in prop_ner:
         if NE == "CARDINAL" and entity.isdigit():
-            scoops += [int(entity)]
+            if 0 < int(entity) < 10:
+                scoops += [int(entity)]
+            else:
+                scoops += [-1]  # indicator that impossible amount was ordered
         elif NE == "CARDINAL" and isinstance(entity, str):
             # we assume that no one orders more than 9 scoops of a flavor
             word2num = {
@@ -509,7 +515,10 @@ def extract_scoops(prop_ner):
                 "eight": 8,
                 "nine": 9,
             }
-            scoops += [word2num[entity]]
+            if word2num.get(entity):
+                scoops += [word2num[entity]]
+            else:
+                scoops += [-1]  # indicator that impossible amount was ordered
     return scoops
 
 

@@ -38,3 +38,13 @@ opts:
 - "{flavor} is not a bad choice. now tell me how many scoops you want please."
 - "I heard you want some {flavor}. could you also tell me how many scoops you want?"
 - "{flavor} is noted. now i would like to learn how many scoops you want."
+---
+type: phrases
+name: "error_scoops"
+opts:
+- "seems like the number of scoops you ordered cannot be served, please tell me a correct order"
+- "seems like the number of scoops you ordered cannot be served, please repeat your order"
+- "i didn't understand your order, please repeat it"
+- "i didn't understand your order, can you repeat it?"
+- "sorry, this amount of ice cream cannot be served, please tell me a correct order"
+- "sorry, this amount of ice cream cannot be served, please repeat your order"

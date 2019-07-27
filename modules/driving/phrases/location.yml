@@ -13,7 +13,6 @@ Q:                                          # possible questions
 A:                                          # answers
   SUCCESS:
   - "i am coming to get you major tom in {min} minutes, hold still on {location}."
-  - "hang tight, i will be in {location} in {min} minutes."
   - "one big roboy is coming to your location {location} in {min} minutes."
   - "i have heard that you are in {location}. i hope to be there in {min} minutes."
   - "{location} in {min} minutes! here i come!"
