@@ -1,0 +1,18 @@
+type: qa
+name: "location"
+Q:
+- "just tell me where i can meet you"
+- "where can i meet you?"
+- "where are you? so i can meet you"
+- "where should i meet you?"
+- "where do you want to meet me to get your ice cream?"
+- "where are you located? i will fly by to sell you delicious ice cream"
+A:
+  SUCCESS:
+  - "i will be at {location} in {min} minutes, see you then!"
+  - "alrighty, i will see you at {location}! only {min} minutes left until you get your ice cream"
+  - "{location} sounds like a perfect place for ice cream - see you in {min} minutes there"
+  FAILURE:
+  - "hmm i didn't understand where you are, maybe i can meet you at a spot everyone knows?"
+  - "uhm i don't know where that is, can we meet somewhere else?"
+  - "i have never heard of a place like that. let's meet somewhere else!"

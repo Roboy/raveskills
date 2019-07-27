@@ -35,7 +35,6 @@ with rs.Module(name="Luigi"):
     sig_yesno_detected = rs.Signal("yesno")
     sig_changed_flavor_or_scoops = rs.Signal("changed_flavor_or_scoops")
     sig_telegram_conversation = rs.Signal("telegram_conversation")
-    sig_has_arrived = rs.Signal("has_arrived")
     sig_ice_cream_desire = rs.Signal("ice_cream_desire")
     sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
 
@@ -131,37 +130,24 @@ with rs.Module(name="Luigi"):
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("greet_general")
 
     @rs.state(
-        cond=sig_ice_cream_desire.max_age(-1),
-        write=(rawio.prop_out, prop_suggested_ice_cream),
-        signal=sig_start_order_question,
-        emit_detached=True)
-    def ice_cream_desire_will_be_fulfilled(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = "you are talking to the right person, i can get you some ice cream!"
-        ctx[prop_suggested_ice_cream] = True
-        return rs.Emit()
-
-    @rs.state(
         cond=sig_start_order_question.max_age(-1),
         write=rawio.prop_out)
     def ask_for_location(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = "just tell me where i can meet you!"
+        ctx[rawio.prop_out] = verbaliser.get_random_question("location")
+
 
     @rs.state(
         read=prop_location,
-        write=rawio.prop_out,
-        signal=sig_has_arrived,  # TODO remove, this is just a dummy, should be emitted when AD team signals arrival
-        emit_detached=True)
+        write=rawio.prop_out)
     def known_location(ctx: rs.ContextWrapper):
         location = ctx[prop_location]
         if location == "unknown":
-            ctx[rawio.prop_out] = "hmm, i didn't understand where you are... " \
-                                  "maybe i can meet you at a spot everyone knows?"
+            ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("location")
         else:
             eta, error_msg = ad_communication(location)
             if error_msg is not "":
-                ctx[rawio.prop_out] = "i will be at {location} in {min} minutes, see you then!" \
+                ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location") \
                     .format(location=location, min=eta)
-                return rs.Emit()
 
 
 # -------------------- functions outside module -------------------- #
