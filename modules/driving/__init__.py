@@ -3,6 +3,8 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
+import rospy
+from roboy_cognition_msgs.srv import DriveToLocation
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
@@ -155,9 +157,11 @@ with rs.Module(name="Luigi"):
             ctx[rawio.prop_out] = "hmm, i didn't understand where you are... " \
                                   "maybe i can meet you at a spot everyone knows?"
         else:
-            ctx[rawio.prop_out] = "i will be at {location} in {min} minutes, see you then!" \
-                .format(location=location, min=get_arrival_time())
-            return rs.Emit()
+            eta, error_msg = ad_communication(location)
+            if error_msg is not "":
+                ctx[rawio.prop_out] = "i will be at {location} in {min} minutes, see you then!" \
+                    .format(location=location, min=eta)
+                return rs.Emit()
 
 
 # -------------------- functions outside module -------------------- #
@@ -169,6 +173,13 @@ def extract_location(prop_tokens):
     return "unknown"
 
 
-def get_arrival_time():
-    # TODO receive time from AD team that says how long they will need to get to the requested location
-    return 42
+def ad_communication(location):
+    rospy.wait_for_service('autonomous_driving')
+    try:
+        drive_to_location = rospy.ServiceProxy('autonomous_driving', DriveToLocation)
+        response = drive_to_location(location)
+        return response.eta, response.error_message
+    except rospy.ROSInterruptException as e:
+        print('Service call failed:', e)
+    # If driving module is run without ROS, comment everything from above (including imports) and uncomment this:
+    # return 42, ""
