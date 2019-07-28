@@ -3,10 +3,10 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
-import rospy
-import actionlib
-from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
-from roboy_cognition_msgs.srv import Payment
+# import rospy
+# import actionlib
+# from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
+# from roboy_cognition_msgs.srv import Payment
 from enum import IntEnum
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
@@ -33,9 +33,9 @@ with rs.Module(name="Luigi"):
 
     # ----------- ROS scooping action client ---------------------
 
-    rospy.init_node('scooping_client_py')
-    client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
-    client.wait_for_server()
+    # rospy.init_node('scooping_client_py')
+    # client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
+    # client.wait_for_server()
 
     # -------------------- properties -------------------- #
 
@@ -113,7 +113,7 @@ with rs.Module(name="Luigi"):
     @rs.state(
         cond=nlp.prop_tokens.changed(),
         read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas, nlp.prop_ner, prop_flavors, prop_scoops),
-        write=(rawio.prop_out, prop_flavors, prop_scoops),
+        write=(prop_scoops, prop_flavors),
         signal=sig_changed_flavor_or_scoops,
         emit_detached=True)
     def detect_flavors_and_scoops(ctx: rs.ContextWrapper):
@@ -175,16 +175,13 @@ with rs.Module(name="Luigi"):
         if ice_cream_order:
             flavors = extract_flavors(tokens)
             scoops = extract_scoops(ner)
-            if -1 in scoops:
-                ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_scoops")
-            else:
-                if "each" in tokens and len(scoops) == 1:
-                    scoops *= len(flavors)
-                if flavors:
-                    ctx[prop_flavors] = prop_flavors.read() + flavors
-                if scoops:
-                    ctx[prop_scoops] = prop_scoops.read() + scoops
-                return rs.Emit()
+            if "each" in tokens and len(scoops) == 1:
+                scoops *= len(flavors)
+            if flavors:
+                ctx[prop_flavors] = prop_flavors.read() + flavors
+            if scoops:
+                ctx[prop_scoops] = prop_scoops.read() + scoops
+            return rs.Emit()
 
     @rs.state(
         cond=nlp.prop_tokens.changed(),
@@ -250,7 +247,6 @@ with rs.Module(name="Luigi"):
         if yesno == "yes" or yesno == "no":
             return rs.Emit()
 
-
     # -------------------- states: conversation flow -------------------- #
 
     @rs.state(
@@ -304,7 +300,11 @@ with rs.Module(name="Luigi"):
         read=(prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops),
         write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops))
     def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
-        if prop_flavors.read() and prop_scoops.read() and len(prop_flavors.read()) == len(prop_scoops.read()):
+        if -1 in prop_scoops.read():
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_scoops")
+            ctx[prop_flavors] = []
+            ctx[prop_scoops] = []
+        elif prop_flavors.read() and prop_scoops.read() and len(prop_flavors.read()) == len(prop_scoops.read()):
             current_order = [x for x in zip(prop_flavors.read(), prop_scoops.read())]
             add_orders_together(current_order, prop_flavor_scoop_tuple_list.read())
             ctx[prop_flavor_scoop_tuple_list] = current_order
