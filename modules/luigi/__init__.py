@@ -3,8 +3,11 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
-from enum import Enum
-from luigi.communication import *
+# import rospy
+# import actionlib
+# from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
+# from roboy_cognition_msgs.srv import Payment
+from enum import IntEnum
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
@@ -21,12 +24,18 @@ PAYMENT_OPTION_SYNONYMS = {"paypal", "cash", "coins", "coin", "money"}
 PAY_SYNONYMS = {"pay", "want pay", "pay will", "pay can", "pay could", "use will", "like pay"}
 
 
-class PaymentOptions(Enum):
+class PaymentOptions(IntEnum):
     COIN = 0
     PAYPAL = 1
 
 
 with rs.Module(name="Luigi"):
+
+    # ----------- ROS scooping action client ---------------------
+
+    # rospy.init_node('scooping_client_py')
+    # client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
+    # client.wait_for_server()
 
     # -------------------- properties -------------------- #
 
@@ -104,7 +113,7 @@ with rs.Module(name="Luigi"):
     @rs.state(
         cond=nlp.prop_tokens.changed(),
         read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas, nlp.prop_ner, prop_flavors, prop_scoops),
-        write=(prop_flavors, prop_scoops),
+        write=(prop_scoops, prop_flavors),
         signal=sig_changed_flavor_or_scoops,
         emit_detached=True)
     def detect_flavors_and_scoops(ctx: rs.ContextWrapper):
@@ -238,7 +247,6 @@ with rs.Module(name="Luigi"):
         if yesno == "yes" or yesno == "no":
             return rs.Emit()
 
-
     # -------------------- states: conversation flow -------------------- #
 
     @rs.state(
@@ -292,7 +300,11 @@ with rs.Module(name="Luigi"):
         read=(prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops),
         write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops))
     def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
-        if prop_flavors.read() and prop_scoops.read() and len(prop_flavors.read()) == len(prop_scoops.read()):
+        if -1 in prop_scoops.read():
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_scoops")
+            ctx[prop_flavors] = []
+            ctx[prop_scoops] = []
+        elif prop_flavors.read() and prop_scoops.read() and len(prop_flavors.read()) == len(prop_scoops.read()):
             current_order = [x for x in zip(prop_flavors.read(), prop_scoops.read())]
             add_orders_together(current_order, prop_flavor_scoop_tuple_list.read())
             ctx[prop_flavor_scoop_tuple_list] = current_order
@@ -347,12 +359,17 @@ with rs.Module(name="Luigi"):
         complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
         flavors = [x for x, _ in flavor_scoop_tuple_list]
         scoops = [y for _, y in flavor_scoop_tuple_list]
-        success, error_message = scooping_communication(flavors, scoops)
-        if success:
+        goal = OrderIceCreamGoal()  # use the action client declared in the beginning of the module
+        goal.flavors = flavors
+        goal.scoops = scoops
+        client.send_goal(goal, feedback_cb=scooping_feedback_cb)
+        client.wait_for_result()
+        result = client.get_result()
+        if result.success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
-                                 format(cost=complete_cost, order=complete_order)
+                format(cost=complete_cost, order=complete_order)
         else:
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop conversation?
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop convo? output result.error?
 
     @rs.state(
         cond=sig_changed_payment_option.detached() | sig_payment_incomplete,
@@ -481,7 +498,10 @@ def extract_scoops(prop_ner):
     scoops = []
     for entity, NE in prop_ner:
         if NE == "CARDINAL" and entity.isdigit():
-            scoops += [int(entity)]
+            if 0 < int(entity) < 10:
+                scoops += [int(entity)]
+            else:
+                scoops += [-1]  # indicator that impossible amount was ordered
         elif NE == "CARDINAL" and isinstance(entity, str):
             # we assume that no one orders more than 9 scoops of a flavor
             word2num = {
@@ -495,7 +515,10 @@ def extract_scoops(prop_ner):
                 "eight": 8,
                 "nine": 9,
             }
-            scoops += [word2num[entity]]
+            if word2num.get(entity):
+                scoops += [word2num[entity]]
+            else:
+                scoops += [-1]  # indicator that impossible amount was ordered
     return scoops
 
 
@@ -529,3 +552,22 @@ def amount_in_euros_and_cents(amount):
         return "{euros} {euro_string}".format(euros=euros, euro_string=euro_string)
     elif cents:
         return "{cents} {cent_string}".format(cents=cents, cent_string=cent_string)
+
+
+def scooping_feedback_cb(feedback):
+    # TODO do something with the feedback like writing it to a global value that can be checked by an abort-state
+    print('Feedback:', list(feedback.finished_flavors))
+
+
+def payment_communication(price, payment_option):
+    rospy.wait_for_service('payment')
+    try:
+        payment = rospy.ServiceProxy('payment', Payment)
+        response = payment(np.uint16(price), np.uint8(payment_option))
+        return response.amount_paid, response.error_message
+    except rospy.ROSInterruptException as e:
+        print('Service call failed:', e)
+    # If luigi module is run without ROS, comment everything from above (including imports) and uncomment this:
+    # print("in payment communication - price: {} option: {}".format(price, payment_option))
+    # time.sleep(4)
+    # return 220, ""
