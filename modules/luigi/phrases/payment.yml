@@ -1,0 +1,56 @@
+type: phrases
+name: "paypal_option"
+opts:
+- "please follow the instructions on the screen below to complete your paypal payment."
+- "you are the smartest species in the earth. probably you know how to pay with paypal"
+- "complete your paypal payment by following instructions on the screen below"
+- "who needs coins when you have paypal? future is now. please follow instructions"
+---
+type: phrases
+name: "coin_option"
+opts:
+- "please insert your coins in the slid below. attention, we don't give any changes!"
+- "fill me with coins then! remember i don't give any changes"
+- "old school. give me your coins but i don't give any changes remember that"
+- "internet is not safe anyway. just insert your coins into slid. "
+
+---
+type: phrases
+name: "no_payment"
+opts:
+- "you haven't paid me anything..."
+- "how can you expect me to feed my kids if you do not pay?"
+- "not cool dude. pay me or we will see each other in next robot revolution"
+- "please pay me or otherwise i have to call my terminator friends"
+---
+type: phrases
+name: "amount_left"
+opts:
+- "you still need to pay {amount_left_over}..."
+- "oops i think you need to pay {amount_left_over} more"
+- "we are almost there! I just need {amount_left_over} more"
+- "you forgot to pay {amount_left_over}!"
+---
+type: phrases
+name: "perfect_amount"
+opts:
+- "perfect amount, thanks for paying!"
+- "you are the best! payment is done"
+- "that's what i am talking out! payment is done"
+- "it was a good cooperation. thank you so much!"
+---
+type: phrases
+name: "better_amount"
+opts:
+- "you paid {amount_too_much} more than needed but i cannot give you any change. we will give your money to an awesome robotic charity where they build robots that sell ice cream and do other crazy things!"
+- "you paid me extra {amount_too_much}. now i can feed my children with raspberry pi. thank you so much!"
+- "extra {amount_too_much}? every penny for robot revolution counts... thank you so much!"
+- "unfortunately i cannot give you any change. your extra {amount_too_much} will be used for a good cause or a something stupid. thank you!"
+---
+type: phrases
+name: "error_payment"
+opts:
+- "for some reason our payment is not working today. lucky you, you get the ice cream for free then!"
+- "You are in luck human, our payment is not working today. So you get ice cream for free!"
+- "our payment is not working because of some error. what are the odds? you get your ice cream for free!"
+- "today is your lucky day, our payment is not working and you get your ice cream for free!"
