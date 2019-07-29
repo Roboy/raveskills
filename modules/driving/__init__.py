@@ -1,13 +1,16 @@
+#!/usr/bin/env python
 import ravestate as rs
 import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
-import rospy
-from roboy_cognition_msgs.srv import DriveToLocation
+# import rospy
+# from roboy_cognition_msgs.srv import DriveToLocation
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
+import asyncio
+import websockets
 
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
 NEGATION_SYNONYMS = {"no", "not"}
@@ -68,7 +71,7 @@ with rs.Module(name="Luigi"):
         if triples[0].match_either_lemma(pred=PLACES) and \
                 not NEGATION_SYNONYMS & set(lemmas):
             # for expressing locations with just single words such as "mensa" or "mi building"
-            ctx[prop_location] = extract_location(tokens)
+            ctx[prop_location] = communication_with_cloud(get_loc = True)
         elif triples[0].match_either_lemma(subj={"i"}) and \
                 triples[0].match_either_lemma(pred={"be"}) and \
                 triples[0].match_either_lemma(obj=PLACES) and \
@@ -76,21 +79,21 @@ with rs.Module(name="Luigi"):
             # for expressing locations using sentences like
             # "i am in front of the mensa"
             # "i am near the mi"
-            ctx[prop_location] = extract_location(tokens)
+            ctx[prop_location] = communication_with_cloud(get_loc = True )
         elif triples[0].match_either_lemma(pred=PROXIMITY_SYNONYMS) and \
                 triples[0].match_either_lemma(obj=PLACES) and \
                 not NEGATION_SYNONYMS & set(lemmas):
             # for expressing locations using phrases like
             # "right by the mensa"
             # "at the mi"
-            ctx[prop_location] = extract_location(tokens)
+            ctx[prop_location] = communication_with_cloud(get_loc = True)
         elif triples[0].match_either_lemma(pred={"meet", "let"}) and \
                 triples[0].match_either_lemma(obj=PLACES) and \
                 not NEGATION_SYNONYMS & set(lemmas):
             # for expressing locations using phrases like
             # "let's meet at the ubahn"
             # "meet me at the mw"
-            ctx[prop_location] = extract_location(tokens)
+            ctx[prop_location] = communication_with_cloud(get_loc = True)
 
     @rs.state(
         read=nlp.prop_yesno,
@@ -147,24 +150,44 @@ with rs.Module(name="Luigi"):
             if error_msg is not "":
                 ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location_qa") \
                     .format(location=location, min=eta)
+                communication_with_cloud(send_eta=True)
 
 
 # -------------------- functions outside module -------------------- #
 
-def extract_location(prop_tokens):
-    for token in prop_tokens:
-        if token in PLACES:
-            return token
-    return "unknown"
-
+def communication_with_cloud(send_eta = False, get_loc = False, get_img = False):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    location = loop.run_until_complete(roboy_client(get_loc, send_eta, get_img))
+    loop.close()
+    return location
+    # for token in prop_tokens:
+    #     if token in PLACES:
+    #         return token
+    # return "unknown"
 
 def ad_communication(location):
-    rospy.wait_for_service('autonomous_driving')
-    try:
-        drive_to_location = rospy.ServiceProxy('autonomous_driving', DriveToLocation)
-        response = drive_to_location(location)
-        return response.eta, response.error_message
-    except rospy.ROSInterruptException as e:
-        print('Service call failed:', e)
+    # rospy.wait_for_service('autonomous_driving')
+    # try:
+    #     drive_to_location = rospy.ServiceProxy('autonomous_driving', DriveToLocation)
+    #     response = drive_to_location(location)
+    #     return response.eta, response.error_message
+    # except rospy.ROSInterruptException as e:
+    #     print('Service call failed:', e)
     # If driving module is run without ROS, comment everything from above (including imports) and uncomment this:
-    # return 42, ""
+    return 42, "1"
+
+async def roboy_client(get_loc,send_eta, get_img):
+    uri = "ws://localhost:8765" #TODO Change server to google cloud
+    async with websockets.connect(uri) as websocket:
+        if(get_loc):
+            location = await websocket.recv()
+            return location
+        elif(send_eta):
+            eta, err = ad_communication("mensa")
+            await websocket.send(str(eta)) ##TODO didn't accept integer, sending string for now
+        elif(get_img):
+            img = await websocket.recv()
+            return img
+
+
