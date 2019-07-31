@@ -1,0 +1,50 @@
+type: phrases
+name: "legit_order"
+opts:
+- "{order} will be delicious! is that all?"
+- "wow you are quite a picker! {order} then! are we done?"
+- "not a bad choice! {order} sound delicious. are we good to go?"
+- "{order} coming right up! is that all?"
+- "i am going to prepare {order} now. is that all?"
+- "i've heard you! {order} is going to be prepared. is that all?"
+---
+type: phrases
+name: "preparing_order"
+opts:
+- "alright, {order} coming right up!"
+- "here i go, {order} is being prepared!"
+- "deployment of {order} is confirmed. please stand by."
+- "i am preparing {order} then"
+- "{order} is coming soon. buckle up!"
+- "{order} is coming from coolest robot. please wait."
+---
+type: phrases
+name: "need_flavor"
+opts:
+- "it would be helpful if you also told me what flavor you want {scoop} scoop{s} of ..."
+- "you forgot the most important part! what {scoop} scoop{s} of flavor you want?"
+- "{scoop} scoop{s} of what exactly? could you tell me also a flavor?"
+- "ground control to major tom. I got you want {scoop} scoop{s}. now it's time to tell me what flavor you want"
+- "I heard you want {scoop} scoop{s}. But what flavor exactly?"
+- "you know some numbers that is good. could you also tell me a flavor?"
+---
+type: phrases
+name: "need_scoop"
+opts:
+- "{flavor} is also one of my favorites! can you also tell me how many scoops you want?"
+- "hard part is over! okay you want {flavor}, could you also tell me how many scoops you want?"
+- "{flavor} is quite a good choice! but i also will need scoop count..."
+- "ground control to major tom. I got your {flavor}. now it's time to tell me how many scoops you want."
+- "{flavor} is not a bad choice. now tell me how many scoops you want please."
+- "I heard you want some {flavor}. could you also tell me how many scoops you want?"
+- "{flavor} is noted. now i would like to learn how many scoops you want."
+---
+type: phrases
+name: "error_scoops"
+opts:
+- "seems like the number of scoops you ordered cannot be served, please tell me a correct order"
+- "seems like the number of scoops you ordered cannot be served, please repeat your order"
+- "i didn't understand your order, please repeat it"
+- "i didn't understand your order, can you repeat it?"
+- "sorry, this amount of ice cream cannot be served, please tell me a correct order"
+- "sorry, this amount of ice cream cannot be served, please repeat your order"

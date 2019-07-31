@@ -1,0 +1,9 @@
+version: '2.1'
+
+services:
+  ravestate:
+    volumes:
+      - ../raveskills:/raveskills
+    environment:
+      - PYTHONPATH=$PYTHONPATH:/raveskills/modules
+      - PYTHONUNBUFFERED=1
