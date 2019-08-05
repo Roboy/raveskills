@@ -159,13 +159,9 @@ with rs.Module(name="Luigi"):
 def communication_with_cloud(send_eta = False, get_loc = False, get_img = False):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    location = loop.run_until_complete(roboy_client(get_loc, send_eta, get_img))
+    var = loop.run_until_complete(roboy_client_server(get_loc, send_eta, get_img))
     loop.close()
-    return location
-    # for token in prop_tokens:
-    #     if token in PLACES:
-    #         return token
-    # return "unknown"
+    return var
 
 def ad_communication(location):
     # rospy.wait_for_service('autonomous_driving')
@@ -178,7 +174,7 @@ def ad_communication(location):
     # If driving module is run without ROS, comment everything from above (including imports) and uncomment this:
     return 42, "1"
 
-async def roboy_client(get_loc,send_eta, get_img):
+async def roboy_client_server(get_loc,send_eta, get_img):
     uri = "ws://localhost:8765" #TODO Change server to google cloud
     async with websockets.connect(uri) as websocket:
         if(get_loc):
@@ -188,7 +184,9 @@ async def roboy_client(get_loc,send_eta, get_img):
             eta, err = ad_communication("mensa")
             await websocket.send(str(eta)) ##TODO didn't accept integer, sending string for now
         elif(get_img):
-            img = await websocket.recv()
+            img = await websocket.recv() ##TODO might need encoding for Image
             return img
+        else:
+            return
 
 
