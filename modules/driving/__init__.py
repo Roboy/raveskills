@@ -151,15 +151,15 @@ with rs.Module(name="Luigi"):
             if error_msg is not "":
                 ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location") \
                     .format(location=location, min=eta)
-                communication_with_cloud(send_eta=True)
+                communication_with_cloud(eta = eta)
 
 
 # -------------------- functions outside module -------------------- #
 
-def communication_with_cloud(send_eta = False, get_loc = False, get_img = False):
+def communication_with_cloud(get_loc = False, get_img = False, eta = -1):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    var = loop.run_until_complete(roboy_client_server(get_loc, send_eta, get_img))
+    var = loop.run_until_complete(roboy_client_server(get_loc, get_img, eta))
     loop.close()
     return var
 
@@ -174,19 +174,19 @@ def ad_communication(location):
     # If driving module is run without ROS, comment everything from above (including imports) and uncomment this:
     return 42, "1"
 
-async def roboy_client_server(get_loc,send_eta, get_img):
+async def roboy_client_server(get_loc, get_img, eta):
     uri = "ws://localhost:8765" #TODO Change server to google cloud
     async with websockets.connect(uri) as websocket:
         if(get_loc):
             location = await websocket.recv()
             return location
-        elif(send_eta):
-            eta, err = ad_communication("mensa")
+        elif(eta != -1):
             await websocket.send(str(eta)) ##TODO didn't accept integer, sending string for now
+            return eta
         elif(get_img):
             img = await websocket.recv() ##TODO might need encoding for Image
             return img
         else:
-            return
+            return -1
 
 
