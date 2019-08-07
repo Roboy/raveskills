@@ -21,6 +21,7 @@ config:
     - ravestate_fillers
     - ravestate_hibye
     - ravestate_roboyio
+    - ravestate_conio
     - luigi
   ros2-node-name: "ros2-node-name"
 
@@ -33,6 +34,6 @@ config:
 ---
 module: idle
 config:
-  impatience_threshold: 6.0  # number of seconds of "pressure" after which a filler should be sent
-  bored_threshold: 12.0 # number of seconds of "no activity" after which active engagement should activate
+  impatience_threshold: 10.0  # number of seconds of "pressure" after which a filler should be sent
+  bored_threshold: 20.0 # number of seconds of "no activity" after which active engagement should activate
 

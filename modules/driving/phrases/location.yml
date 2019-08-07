@@ -1,18 +1,27 @@
-type: qa
-name: "location"
-Q:
-- "just tell me where i can meet you"
-- "where can i meet you?"
-- "where are you? so i can meet you"
-- "where should i meet you?"
-- "where do you want to meet me to get your ice cream?"
-- "where are you located? i will fly by to sell you delicious ice cream"
-A:
+type: qa                                    # remark types: question answering (qa), phrases
+name: "location_qa"                              # intent or topic
+Q:                                          # possible questions
+- "just tell me where i can meet you!"
+- "provide me your location and i can come to you."
+- "lets arrange a meeting place. tell me a location"
+- "i got you! just tell me where should i come."
+- "it is time us to meet face to face, where are you now?"
+- "let's arrange a meeting place. tell me where to meet you."
+- "ahoy! roboy ship is ready to sail and waiting for your location."
+- "my space ship needs a location to land. could you provide me a location?"
+- "my ferrari is ready. tell me where you are and I will try to come as fast as possible"
+A:                                          # answers
   SUCCESS:
-  - "i will be at {location} in {min} minutes, see you then!"
-  - "alrighty, i will see you at {location}! only {min} minutes left until you get your ice cream"
-  - "{location} sounds like a perfect place for ice cream - see you in {min} minutes there"
+  - "i am coming to get you major tom in {min} minutes, hold still on {location}."
+  - "one big roboy is coming to your location {location} in {min} minutes."
+  - "i have heard that you are in {location}. i hope to be there in {min} minutes."
+  - "{location} in {min} minutes! here i come!"
+  - "hide your pretty robots. because roboy is coming to {location} in {min} minutes ."
   FAILURE:
-  - "hmm i didn't understand where you are, maybe i can meet you at a spot everyone knows?"
-  - "uhm i don't know where that is, can we meet somewhere else?"
-  - "i have never heard of a place like that. let's meet somewhere else!"
+  - "hmm, i didn't understand where you are... maybe i can meet you at a spot everyone knows?"
+  - "could you repeat again? Or tell me somewhere more known maybe?"
+  - "either i heard you wrong or i do not know that location. could you provide me a new location?"
+  - "i have never heard of that place. could you tell me a more specific place to meet?"
+  - "ship is not ready for sail because captain roboy needs to know your location. could you provide me a new one?"
+  - "show is yet to start, because I couldn't get your location. Could you tell me again?"
+  

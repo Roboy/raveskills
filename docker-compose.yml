@@ -9,7 +9,8 @@ services:
       dockerfile: Dockerfile
     network_mode: host
     volumes:
-      - .:/ravestate
+      - .:/raveskills
+      - ../ravestate:/ravestate
       #- /home/roboy/ros2_speech_recognition:/ros2_speech_recognition
     #devices:
     #  - /dev/snd:/dev/snd
@@ -18,7 +19,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      - PYTHONPATH=$PYTHONPATH:/raveskills/modules
+      - PYTHONPATH=$PYTHONPATH:/raveskills/modules:/ravestate/modules:/root/melodic_ws/src/roboy_communication
       - PYTHONUNBUFFERED=1
     # After starting container, attach console and enter python3 -m ravestate [...]
     # This enables "hot reload" in the running container because the source directory is mounted

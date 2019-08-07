@@ -3,6 +3,11 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
+# import rospy
+# import actionlib
+# from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
+# from roboy_cognition_msgs.srv import Payment
+from enum import IntEnum
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
@@ -15,9 +20,22 @@ SCOOP_SYNONYMS = {"scoop", "ball", "servings"}
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
 NEGATION_SYNONYMS = {"no", "not"}
 ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
+PAYMENT_OPTION_SYNONYMS = {"paypal", "cash", "coins", "coin", "money"}
+PAY_SYNONYMS = {"pay", "want pay", "pay will", "pay can", "pay could", "use will", "like pay"}
+
+
+class PaymentOptions(IntEnum):
+    COIN = 0
+    PAYPAL = 1
 
 
 with rs.Module(name="Luigi"):
+
+    # ----------- ROS scooping action client ---------------------
+
+    # rospy.init_node('scooping_client_py')
+    # client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
+    # client.wait_for_server()
 
     # -------------------- properties -------------------- #
 
@@ -29,17 +47,27 @@ with rs.Module(name="Luigi"):
                                                allow_read=True, always_signal_changed=False)
     prop_suggested_ice_cream = rs.Property(name="suggested_ice_cream", always_signal_changed=False, default_value=False,
                                            allow_read=True, allow_write=True)
+    prop_price = rs.Property(name="price", always_signal_changed=False, default_value=-1, allow_read=True,
+                             allow_write=True)
+    prop_payment_option = rs.Property(name="payment_method", always_signal_changed=False, default_value=-1,
+                                      allow_read=True, allow_write=True)
+    prop_payment_success = rs.Property(name="payment_success", always_signal_changed=False, default_value=False,
+                                       allow_read=True, allow_write=True)
 
     # -------------------- signals -------------------- #
 
     sig_start_order_question = rs.Signal("start_order_question")
     sig_finish_order_question = rs.Signal("finish_order_question")
+    sig_start_payment= rs.Signal("start_payment")
     sig_finished_payment = rs.Signal("finished_payment")
+    sig_payment_incomplete = rs.Signal("payment_incomplete")
     sig_yesno_detected = rs.Signal("yesno")
     sig_changed_flavor_or_scoops = rs.Signal("changed_flavor_or_scoops")
+    sig_changed_payment_option = rs.Signal("changed_payment_option")
     sig_has_arrived = rs.Signal("has_arrived")  # TODO ad team should send this once Roboy has arrived
     sig_ice_cream_desire = rs.Signal("ice_cream_desire")
     sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
+    sig_insert_coins = rs.Signal("insert_coins")
 
     # -------------------- states: detection -------------------- #
 
@@ -85,7 +113,7 @@ with rs.Module(name="Luigi"):
     @rs.state(
         cond=nlp.prop_tokens.changed(),
         read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas, nlp.prop_ner, prop_flavors, prop_scoops),
-        write=(prop_flavors, prop_scoops),
+        write=(prop_scoops, prop_flavors),
         signal=sig_changed_flavor_or_scoops,
         emit_detached=True)
     def detect_flavors_and_scoops(ctx: rs.ContextWrapper):
@@ -156,13 +184,68 @@ with rs.Module(name="Luigi"):
             return rs.Emit()
 
     @rs.state(
+        cond=nlp.prop_tokens.changed(),
+        read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas),
+        write=prop_payment_option,
+        signal=sig_changed_payment_option,
+        emit_detached=True)
+    def detect_payment_option(ctx: rs.ContextWrapper):
+        detected_payment_option = False
+        tokens = ctx[nlp.prop_tokens]
+        triples = ctx[nlp.prop_triples]
+        lemmas = ctx[nlp.prop_lemmas]
+        if triples[0].match_either_lemma(subj={"i"}) and \
+           triples[0].match_either_lemma(pred=PAY_SYNONYMS) and \
+           triples[0].match_either_lemma(obj=PAYMENT_OPTION_SYNONYMS) and \
+           not NEGATION_SYNONYMS & set(lemmas):
+            # this case holds when customer answers the payment question using phrases like
+            # "i would like to pay with cash please"
+            # "i pay with paypal"
+            # "can i pay with cash?"
+            # it does not hold whenever the customer negates his expression, i.e.
+            # "i don't want to pay with cash"
+            # "i won't pay using paypal"
+            detected_payment_option = True
+        elif triples[0].match_either_lemma(pred=PAYMENT_OPTION_SYNONYMS) and \
+                not NEGATION_SYNONYMS & set(lemmas):
+            # this case holds when the customer answers the payment question with
+            # "paypal please"
+            # "cash"
+            detected_payment_option = True
+        elif triples[0].match_either_lemma(pred={"with", "by", "in"}) and \
+                triples[0].match_either_lemma(obj=PAYMENT_OPTION_SYNONYMS) and \
+                not NEGATION_SYNONYMS & set(lemmas):
+            # this case holds when the customer answers the payment question with
+            # "paypal please"
+            # "by cash"
+            # "paypal"
+            # "in coins"
+            detected_payment_option = True
+        elif triples[0].match_either_lemma(pred={"with", "by", "in"}) and \
+                triples[0].match_either_lemma(obj={"please"}) and \
+                not NEGATION_SYNONYMS & set(lemmas):
+            # this case holds when the customer answers the payment question with
+            # "with paypal please"
+            detected_payment_option = True
+        elif triples[0].match_either_lemma(subj={"me"}) and \
+                triples[0].match_either_lemma(pred={"let"}) and \
+                triples[0].match_either_lemma(obj=PAYMENT_OPTION_SYNONYMS) and \
+                not NEGATION_SYNONYMS & set(lemmas):
+            # this case holds when customer answers the payment question using phrases like
+            # "let me pay with cash please"
+            detected_payment_option = True
+        if detected_payment_option:
+            ctx[prop_payment_option] = PaymentOptions.PAYPAL if "paypal" in tokens else PaymentOptions.COIN
+            return rs.Emit()
+
+
+    @rs.state(
         read=nlp.prop_yesno,
         signal=sig_yesno_detected)
     def yesno_detection(ctx: rs.ContextWrapper):
         yesno = ctx[nlp.prop_yesno]
         if yesno == "yes" or yesno == "no":
             return rs.Emit()
-
 
     # -------------------- states: conversation flow -------------------- #
 
@@ -180,12 +263,14 @@ with rs.Module(name="Luigi"):
             return rs.Emit()
 
     @rs.state(
-        cond=sig_suggested_ice_cream.max_age(-1) & sig_yesno_detected,
-        read=nlp.prop_yesno,
+        cond=sig_suggested_ice_cream.max_age(-1) & sig_yesno_detected | sig_changed_flavor_or_scoops,
+        read=(nlp.prop_yesno, prop_flavors, prop_scoops),
         write=rawio.prop_out,
         signal=sig_start_order_question,
         emit_detached=True)
     def analyse_ice_cream_suggestion_answer(ctx: rs.ContextWrapper):
+        if ctx[prop_scoops] or ctx[prop_flavors]:
+            return rs.Resign()
         if ctx[nlp.prop_yesno] == "yes":
             ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("greet_general")
             return rs.Emit()
@@ -201,12 +286,6 @@ with rs.Module(name="Luigi"):
         ctx[rawio.prop_out] = "you are talking to the right person, i can get you some ice cream!"
         return rs.Emit()
 
-    @rs.state(
-        cond=sig_start_order_question.max_age(-1) & sig_suggested_ice_cream.detached().max_age(-1)
-             | sig_has_arrived.detached().min_age(2),
-        write=rawio.prop_out)
-    def start_order(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = "what can i get you?"
 
     @rs.state(
         cond=sig_has_arrived,
@@ -221,15 +300,18 @@ with rs.Module(name="Luigi"):
         read=(prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops),
         write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops))
     def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
-        if prop_flavors.read() and prop_scoops.read() and len(prop_flavors.read()) == len(prop_scoops.read()):
+        if -1 in prop_scoops.read():
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_scoops")
+            ctx[prop_flavors] = []
+            ctx[prop_scoops] = []
+        elif prop_flavors.read() and prop_scoops.read() and len(prop_flavors.read()) == len(prop_scoops.read()):
             current_order = [x for x in zip(prop_flavors.read(), prop_scoops.read())]
             add_orders_together(current_order, prop_flavor_scoop_tuple_list.read())
             ctx[prop_flavor_scoop_tuple_list] = current_order
             ctx[prop_flavors] = []
             ctx[prop_scoops] = []
             possibly_complete_order, _ = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
-            # TODO: change yml file for order
-            ctx[rawio.prop_out] = "{order} will be delicious! is that all?".format(order=possibly_complete_order)
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("legit_order").format(order=possibly_complete_order)
             return rs.Emit()
         elif len(prop_flavors.read()) > len(prop_scoops.read()):
             current_order = [(prop_flavors.read()[i], prop_scoops.read()[i]) for i in range(0, len(prop_scoops.read()))]
@@ -245,37 +327,116 @@ with rs.Module(name="Luigi"):
             ctx[prop_scoops] = prop_scoops.read()[len(prop_flavors.read()):]
             ctx[prop_flavors] = []
             if prop_scoops.read()[0] == 1:
-                ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_flavor").format(scoop=prop_scoops.read()[0])
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_flavor").format(scoop=prop_scoops.read()[0],
+                                                                                         s="")
             else:
-                ctx[rawio.prop_out] = "it would be helpful if you also told me what flavor you want {scoops} scoops " \
-                                  "of...".format(scoops=prop_scoops.read()[0])  # TODO: Change yml file for scoops
-
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_flavor").format(scoop=prop_scoops.read()[0],
+                                                                                         s="s")
 
     @rs.state(
        cond=sig_finish_order_question.max_age(-1) & sig_yesno_detected,
-       read=nlp.prop_yesno,
-       write=rawio.prop_out,
-       emit_detached=True,
-       signal=sig_finished_payment)
-    def analyse_payment_suggestion_answer(ctx: rs.ContextWrapper):
+       read=(prop_flavor_scoop_tuple_list, nlp.prop_yesno),
+       write=(rawio.prop_out, prop_price),
+       signal=sig_start_payment,
+       emit_detached=True)
+    def analyse_finish_order_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno] == "yes":
-            complete_order, complete_cost = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
-                format(cost=complete_cost, order=complete_order)
-            # TODO add different payment options once we have them
-            return rs.Emit()  # TODO signal should only be emitted once payment is completed
+            flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
+            complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
+            # TODO ıt skips prepare order in tests
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("preparing_order").format(order=complete_order)
+            ctx[prop_price] = complete_cost * 100   # price is in cents
+            return rs.Emit()
         elif ctx[nlp.prop_yesno] == "no":
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("continue_order")
 
     @rs.state(
-       cond=sig_finished_payment,
-       write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops, prop_suggested_ice_cream))
+        cond=sig_start_payment.min_age(.5),
+        read=prop_flavor_scoop_tuple_list,
+        write=rawio.prop_out)
+    def ask_payment_method(ctx: rs.ContextWrapper):
+        flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
+        complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
+        flavors = [x for x, _ in flavor_scoop_tuple_list]
+        scoops = [y for _, y in flavor_scoop_tuple_list]
+        goal = OrderIceCreamGoal()  # use the action client declared in the beginning of the module
+        goal.flavors = flavors
+        goal.scoops = scoops
+        client.send_goal(goal, feedback_cb=scooping_feedback_cb)
+        client.wait_for_result()
+        result = client.get_result()
+        if result.success:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
+                format(cost=complete_cost, order=complete_order)
+        else:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop convo? output result.error?
+
+    @rs.state(
+        cond=sig_changed_payment_option.detached() | sig_payment_incomplete,
+        read=prop_payment_option,
+        write=rawio.prop_out,
+        signal=sig_insert_coins,
+        emit_detached=True)
+    def start_payment(ctx: rs.ContextWrapper):
+        # TODO add verbalizer for both cases below
+        payment_option = ctx[prop_payment_option]
+        if payment_option == PaymentOptions.PAYPAL:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("paypal_option")
+            time.sleep(3)
+            return rs.Emit()
+        elif payment_option == PaymentOptions.COIN:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("coin_option")
+            time.sleep(3)
+            return rs.Emit()
+
+    @rs.state(
+        cond=sig_insert_coins,
+        read=(prop_payment_option, prop_price),
+        write=(rawio.prop_out, prop_payment_success, prop_price),
+        signal=sig_finished_payment,
+        emit_detached=True)
+    def payment_process(ctx: rs.ContextWrapper):
+        # TODO add verbalizer for all cases below
+        payment_option = ctx[prop_payment_option]
+        price = ctx[prop_price]
+        amount_paid, error_message = payment_communication(price, payment_option)
+        if amount_paid == 0:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_payment")
+        elif amount_paid < price:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("amount_left") \
+                                  .format(amount_left_over=amount_in_euros_and_cents(price - amount_paid))
+            ctx[prop_price] = price - amount_paid
+        elif amount_paid == price:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("perfect_amount")
+            ctx[prop_payment_success] = True
+        elif amount_paid > price:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("better_amount")\
+                .format(amount_too_much=amount_in_euros_and_cents(amount_paid - price))
+            ctx[prop_payment_success] = True
+        elif error_message:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_payment")
+        return rs.Emit()
+
+    @rs.state(
+        cond=sig_finished_payment,
+        read=prop_payment_success,
+        write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops, prop_suggested_ice_cream,
+               prop_price, prop_payment_success, prop_payment_option),
+        signal=sig_payment_incomplete,
+        emit_detached=True)
     def after_payment(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = verbaliser.get_random_phrase("farewell")
-        ctx[prop_flavor_scoop_tuple_list] = []
-        ctx[prop_flavors] = []
-        ctx[prop_scoops] = []
-        ctx[prop_suggested_ice_cream] = False
+        payment_success = ctx[prop_payment_success]
+        if payment_success:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("luigi_farewell")
+            ctx[prop_flavor_scoop_tuple_list] = []
+            ctx[prop_flavors] = []
+            ctx[prop_scoops] = []
+            ctx[prop_suggested_ice_cream] = False
+            ctx[prop_price] = -1
+            ctx[prop_payment_option] = -1
+            ctx[prop_payment_success] = False
+        else:
+            return rs.Emit()
 
     @rs.state(
        cond=interloc.prop_all.popped(),
@@ -285,6 +446,9 @@ with rs.Module(name="Luigi"):
         ctx[prop_flavors] = []
         ctx[prop_scoops] = []
         ctx[prop_suggested_ice_cream] = False
+        ctx[prop_price] = -1
+        ctx[prop_payment_option] = -1
+        ctx[prop_payment_success] = False
 
 
 # -------------------- functions outside module -------------------- #
@@ -321,6 +485,7 @@ def get_complete_order_and_cost(flavor_scoop_tuple_list):
         cost += cost_per_scoop * flavor_scoop_tuple_list[order_length-1][1]
     return order, cost
 
+
 def extract_flavors(prop_tokens):
     flavors = []
     for token in prop_tokens:
@@ -333,7 +498,10 @@ def extract_scoops(prop_ner):
     scoops = []
     for entity, NE in prop_ner:
         if NE == "CARDINAL" and entity.isdigit():
-            scoops += [int(entity)]
+            if 0 < int(entity) < 10:
+                scoops += [int(entity)]
+            else:
+                scoops += [-1]  # indicator that impossible amount was ordered
         elif NE == "CARDINAL" and isinstance(entity, str):
             # we assume that no one orders more than 9 scoops of a flavor
             word2num = {
@@ -347,7 +515,10 @@ def extract_scoops(prop_ner):
                 "eight": 8,
                 "nine": 9,
             }
-            scoops += [word2num[entity]]
+            if word2num.get(entity):
+                scoops += [word2num[entity]]
+            else:
+                scoops += [-1]  # indicator that impossible amount was ordered
     return scoops
 
 
@@ -367,3 +538,36 @@ def add_orders_together(current_order, old_order):
             current_order.append((flavor, total_amount))
         else:
             current_order.append((flavor, amount))
+
+
+def amount_in_euros_and_cents(amount):
+    euros = amount // 100
+    cents = amount % 100
+    euro_string = "euro" if euros == 1 else "euros"
+    cent_string = "cent" if cents == 1 else "cents"
+    if euros and cents:
+        return "{euros} {euro_string} and {cents} {cent_string}".format(euros=euros, euro_string=euro_string,
+                                                                        cents=cents, cent_string=cent_string)
+    elif euros:
+        return "{euros} {euro_string}".format(euros=euros, euro_string=euro_string)
+    elif cents:
+        return "{cents} {cent_string}".format(cents=cents, cent_string=cent_string)
+
+
+def scooping_feedback_cb(feedback):
+    # TODO do something with the feedback like writing it to a global value that can be checked by an abort-state
+    print('Feedback:', list(feedback.finished_flavors))
+
+
+def payment_communication(price, payment_option):
+    rospy.wait_for_service('payment')
+    try:
+        payment = rospy.ServiceProxy('payment', Payment)
+        response = payment(np.uint16(price), np.uint8(payment_option))
+        return response.amount_paid, response.error_message
+    except rospy.ROSInterruptException as e:
+        print('Service call failed:', e)
+    # If luigi module is run without ROS, comment everything from above (including imports) and uncomment this:
+    # print("in payment communication - price: {} option: {}".format(price, payment_option))
+    # time.sleep(4)
+    # return 220, ""
