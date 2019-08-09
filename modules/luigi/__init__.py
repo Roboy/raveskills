@@ -3,16 +3,22 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
-# import rospy
-# import actionlib
-# from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
-# from roboy_cognition_msgs.srv import Payment
+import os
+import rospy
+from roboy_cognition_msgs.srv import DriveToLocation, DriveToLocationResponse
+import actionlib
+#from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
+#from roboy_cognition_msgs.srv import Payment
 from enum import IntEnum
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
+import asyncio
+import websockets
 
 cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
+
+#TODO change globals
 
 FLAVORS = {"chocolate", "vanilla"}
 FLAVOR_SYNONYMS = {"flavor", "kind"}
@@ -68,6 +74,7 @@ with rs.Module(name="Luigi"):
     sig_ice_cream_desire = rs.Signal("ice_cream_desire")
     sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
     sig_insert_coins = rs.Signal("insert_coins")
+    sig_send_eta = rs.Signal("send_eta")
 
     # -------------------- states: detection -------------------- #
 
@@ -251,6 +258,24 @@ with rs.Module(name="Luigi"):
 
     @rs.state(
         cond=interloc.prop_all.pushed().detached().min_age(2) | idle.sig_bored.min_age(1),
+        signal=sig_send_eta,
+        emit_detached=True)
+    def get_loc_send_eta(ctx: rs.ContextWrapper):
+        communication_with_cloud()
+        return rs.Emit()
+
+
+    @rs.state(
+        cond=sig_send_eta,
+        signal=sig_has_arrived,
+        emit_detached=True)
+    def arrived_at_location(ctx: rs.ContextWrapper):
+        has_arrived = ad_communication("")
+        if has_arrived:
+            return rs.Emit()
+
+    @rs.state(
+        cond=sig_has_arrived.max_age(-1),
         read=prop_suggested_ice_cream,
         write=(rawio.prop_out, prop_suggested_ice_cream),
         signal=sig_suggested_ice_cream,
@@ -286,12 +311,6 @@ with rs.Module(name="Luigi"):
         ctx[rawio.prop_out] = "you are talking to the right person, i can get you some ice cream!"
         return rs.Emit()
 
-
-    @rs.state(
-        cond=sig_has_arrived,
-        write=rawio.prop_out)
-    def arrived_at_location(ctx: rs.ContextWrapper):
-            ctx[rawio.prop_out] = "hey you, nice to see you in person. now it's ice cream time!"
 
     @rs.state(
         cond=sig_changed_flavor_or_scoops,
@@ -378,7 +397,6 @@ with rs.Module(name="Luigi"):
         signal=sig_insert_coins,
         emit_detached=True)
     def start_payment(ctx: rs.ContextWrapper):
-        # TODO add verbalizer for both cases below
         payment_option = ctx[prop_payment_option]
         if payment_option == PaymentOptions.PAYPAL:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("paypal_option")
@@ -396,7 +414,6 @@ with rs.Module(name="Luigi"):
         signal=sig_finished_payment,
         emit_detached=True)
     def payment_process(ctx: rs.ContextWrapper):
-        # TODO add verbalizer for all cases below
         payment_option = ctx[prop_payment_option]
         price = ctx[prop_price]
         amount_paid, error_message = payment_communication(price, payment_option)
@@ -571,3 +588,30 @@ def payment_communication(price, payment_option):
     # print("in payment communication - price: {} option: {}".format(price, payment_option))
     # time.sleep(4)
     # return 220, ""
+
+
+def ad_communication(location):
+    rospy.wait_for_service('autonomous_driving')
+    try:
+        drive_to_location = rospy.ServiceProxy('autonomous_driving', DriveToLocation)
+        response = drive_to_location(location)
+        return response.eta, response.error_message
+    except rospy.ROSInterruptException as e:
+        print('Service call failed:', e)
+    # If driving module is run without ROS, comment everything from above (including imports) and uncomment this:
+    return 41, ""
+
+def communication_with_cloud():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    asyncio.get_event_loop().run_until_complete(roboy_client())
+    loop.close()
+
+
+
+async def roboy_client():
+    uri = "ws://localhost:8765"
+    async with websockets.connect(uri) as websocket:
+        location = await websocket.recv()
+        eta, err = ad_communication(location)
+        await websocket.send(str(eta))
