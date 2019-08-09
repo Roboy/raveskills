@@ -4,8 +4,8 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
-import rospy
-from roboy_cognition_msgs.srv import DriveToLocation
+# import rospy
+# from roboy_cognition_msgs.srv import DriveToLocation
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
@@ -161,7 +161,6 @@ with rs.Module(name="Luigi"):
                 eta =""
                 #communication_with_cloud(eta = eta)
 
-
 # -------------------- functions outside module -------------------- #
 
 def extract_location(prop_tokens):
@@ -169,8 +168,6 @@ def extract_location(prop_tokens):
         if token in PLACES:
             return token
     return "unknown"
-
-
 
 
 def communication_with_cloud(location):
