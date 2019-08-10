@@ -144,10 +144,12 @@ with rs.Module(name="Luigi"):
         if location == "unknown":
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("location")
         else:
-            eta, error_msg = ad_communication(location)
-            if error_msg is not "":
+            eta, path_found, error_msg = ad_communication(location)
+            if path_found:
                 ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location") \
                     .format(location=location, min=eta)
+            else:
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_path")
 
 
 # -------------------- functions outside module -------------------- #
@@ -164,8 +166,8 @@ def ad_communication(location):
     try:
         drive_to_location = rospy.ServiceProxy('autonomous_driving', DriveToLocation)
         response = drive_to_location(location)
-        return response.eta, response.error_message
+        return response.eta, response.path_found, response.error_message
     except rospy.ROSInterruptException as e:
         print('Service call failed:', e)
     # If driving module is run without ROS, comment everything from above (including imports) and uncomment this:
-    # return 42, ""
+    # return 42, True, ""

@@ -16,3 +16,10 @@ A:
   - "hmm i didn't understand where you are, maybe i can meet you at a spot everyone knows?"
   - "uhm i don't know where that is, can we meet somewhere else?"
   - "i have never heard of a place like that. let's meet somewhere else!"
+---
+type: phrases
+name: "no_path"
+opts:
+- "sorry its not possible to meet you, i cannot drive to your location"
+- "i am sorry but i cannot reach your destination"
+- "i am not able to reach your location, no ice cream for you i guess"
