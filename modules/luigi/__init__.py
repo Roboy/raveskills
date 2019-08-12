@@ -3,11 +3,11 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
-# import rospy
-# import actionlib
-# import numpy as np
-# from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
-# from roboy_cognition_msgs.srv import Payment
+import rospy
+import actionlib
+import numpy as np
+from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
+from roboy_cognition_msgs.srv import Payment
 from enum import IntEnum
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
@@ -34,9 +34,9 @@ class PaymentOptions(IntEnum):
 with rs.Module(name="Luigi"):
     # ----------- ROS scooping action client ---------------------
 
-    # rospy.init_node('scooping_client_py')
-    # client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
-    # client.wait_for_server()
+    rospy.init_node('scooping_client_py')
+    client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
+    client.wait_for_server()
 
     # -------------------- properties -------------------- #
 
@@ -56,8 +56,6 @@ with rs.Module(name="Luigi"):
                                        allow_read=True, allow_write=True)
     prop_asked_order_count = rs.Property(name="asked_order_count", always_signal_changed=False, default_value=1,
                                          allow_read=True, allow_write=True)
-    prop_finished_order = rs.Property(name="finished_order", always_signal_changed=False, default_value=False,
-                                      allow_read=True, allow_write=True)
     prop_asked_payment_count = rs.Property(name="asked_payment_count", always_signal_changed=False, default_value=1,
                                            allow_read=True, allow_write=True)
 
@@ -74,9 +72,9 @@ with rs.Module(name="Luigi"):
     sig_has_arrived = rs.Signal("has_arrived")  # TODO ad team should send this once Roboy has arrived
     sig_ice_cream_desire = rs.Signal("ice_cream_desire")
     sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
-    sig_insert_coins = rs.Signal("insert_coins")
+    sig_insert_coins_or_scan_qr = rs.Signal("insert_coins_or_scan_qr")
     sig_ask_again_order = rs.Signal("ask_again_order")
-    sig_asked_payment_method = rs.Signal("ask_again_order")
+    sig_asked_payment_method = rs.Signal("asked_payment_method")
     sig_send_to_scooping = rs.Signal("send_to_scooping")
 
 
@@ -283,7 +281,7 @@ with rs.Module(name="Luigi"):
 
 
     @rs.state(
-        cond=sig_suggested_ice_cream.max_age(20) & sig_yesno_detected | sig_changed_flavor_or_scoops,
+        cond=sig_suggested_ice_cream.max_age(20).min_age(-1) & sig_yesno_detected | sig_changed_flavor_or_scoops,
         read=(nlp.prop_yesno, prop_flavors, prop_scoops),
         write=rawio.prop_out,
         signal=sig_start_order_question,
@@ -351,19 +349,19 @@ with rs.Module(name="Luigi"):
             return rs.Emit(wipe=True)
 
     @rs.state(
-        cond=sig_finish_order_question.min_age(6).max_age(-1),
-        read=(prop_asked_order_count, prop_finished_order),
+        cond=sig_finish_order_question.min_age(15).max_age(-1),
+        read=prop_asked_order_count,
         write=(prop_asked_order_count, prop_flavor_scoop_tuple_list, prop_flavors,
                prop_scoops, prop_suggested_ice_cream, rawio.prop_out),
         signal=sig_ask_again_order,
         emit_detached=True)
     def waiting_for_complete_order(ctx: rs.ContextWrapper):
         asked_order_count = ctx[prop_asked_order_count]
-        if asked_order_count < 3 and not ctx[prop_finished_order]:
+        if asked_order_count < 3:
             ctx[prop_asked_order_count] = asked_order_count + 1
             return rs.Emit(wipe=True)
         else:
-            ctx[rawio.prop_out] = "it seems like you don't want to tell me a complete order - no ice cream for you then"
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("order_aborted")
             ctx[prop_flavor_scoop_tuple_list] = []
             ctx[prop_flavors] = []
             ctx[prop_scoops] = []
@@ -371,13 +369,12 @@ with rs.Module(name="Luigi"):
             ctx[prop_asked_order_count] = 1
 
     @rs.state(
-        cond=sig_finish_order_question.max_age(6).min_age(-1) & sig_yesno_detected,
+        cond=sig_finish_order_question.max_age(15).min_age(-1) & sig_yesno_detected,
         read=(prop_flavor_scoop_tuple_list, nlp.prop_yesno),
-        write=(rawio.prop_out, prop_price, prop_finished_order),
+        write=(rawio.prop_out, prop_price),
         signal=sig_send_to_scooping,
         emit_detached=True)
     def analyse_finish_order_answer(ctx: rs.ContextWrapper):
-        ctx[prop_finished_order] = True
         if ctx[nlp.prop_yesno] == "yes":
             flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
             complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
@@ -398,13 +395,14 @@ with rs.Module(name="Luigi"):
         flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
         flavors = [x for x, _ in flavor_scoop_tuple_list]
         scoops = [y for _, y in flavor_scoop_tuple_list]
-        # goal = OrderIceCreamGoal()  # use the action client declared in the beginning of the module
-        # goal.flavors = flavors
-        # goal.scoops = scoops
-        # client.send_goal(goal, feedback_cb=scooping_feedback_cb)
-        # client.wait_for_result()
-        # result = client.get_result()
-        if False: #not result.success:
+        goal = OrderIceCreamGoal()  # uses the action client declared in the beginning of the module
+        goal.flavors = flavors
+        goal.scoops = scoops
+        print("sending:", goal)
+        client.send_goal(goal, feedback_cb=scooping_feedback_cb)
+        client.wait_for_result()
+        result = client.get_result()
+        if not result.success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop convo? output result.error?
         else:
             return rs.Emit(wipe=True)
@@ -416,117 +414,112 @@ with rs.Module(name="Luigi"):
         signal=sig_asked_payment_method,
         emit_detached=True)
     def ask_payment_method(ctx: rs.ContextWrapper):
-        if prop_payment_option.read() == -1:
-            flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
-            complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment").format(cost=complete_cost, order=complete_order)
+        flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
+        complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
+        ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment").format(cost=complete_cost, order=complete_order)
+        return rs.Emit(wipe=True)
+
+    @rs.state(
+        cond=sig_asked_payment_method.min_age(15),
+        read=prop_asked_payment_count,
+        write=(prop_asked_payment_count, prop_asked_order_count, prop_flavor_scoop_tuple_list, prop_flavors,
+               prop_scoops, prop_suggested_ice_cream, rawio.prop_out),
+        signal=sig_start_payment,
+        emit_detached=True)
+    def waiting_for_payment_answer(ctx: rs.ContextWrapper):
+        asked_payment_count = ctx[prop_asked_payment_count]
+        if asked_payment_count < 3:
+            ctx[prop_asked_payment_count] += 1
             return rs.Emit(wipe=True)
         else:
-            return rs.Resign()
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_payment")
+            ctx[prop_flavor_scoop_tuple_list] = []
+            ctx[prop_flavors] = []
+            ctx[prop_scoops] = []
+            ctx[prop_suggested_ice_cream] = False
+            ctx[prop_asked_payment_count] = 1
+            ctx[prop_asked_order_count] = 1
 
-    # @rs.state(
-    #     cond=sig_asked_payment_method.detached().min_age(4),
-    #     read=(prop_asked_payment_count, prop_payment_option),
-    #     write=(prop_asked_payment_count, prop_asked_order_count, prop_flavor_scoop_tuple_list, prop_flavors,
-    #            prop_scoops, prop_suggested_ice_cream, rawio.prop_out),
-    #     signal=sig_start_payment,
-    #     emit_detached=True#,
-    #     # wipe=True
-    # )
-    # def waiting_for_payment_answer(ctx: rs.ContextWrapper):
-    #     asked_payment_count = ctx[prop_asked_payment_count]
-    #     if asked_payment_count < 3 and ctx[prop_payment_option] == -1:  # use WIPE!
-    #         ctx[prop_asked_payment_count] += 1
-    #         return rs.Emit(wipe=True)
-    #     elif prop_payment_option.read() == -1:
-    #         ctx[rawio.prop_out] = "it seems like you don't want to pay - no ice cream for you then"
-    #         ctx[prop_flavor_scoop_tuple_list] = []
-    #         ctx[prop_flavors] = []
-    #         ctx[prop_scoops] = []
-    #         ctx[prop_suggested_ice_cream] = False
-    #         ctx[prop_asked_payment_count] = 1
-    #         ctx[prop_asked_order_count] = 1
-    #
-    # @rs.state(
-    #     cond=sig_changed_payment_option.detached() | sig_payment_incomplete,
-    #     read=prop_payment_option,
-    #     write=(rawio.prop_out, prop_asked_payment_count),
-    #     signal=sig_insert_coins,
-    #     emit_detached=True)
-    # def start_payment(ctx: rs.ContextWrapper):
-    #     payment_option = ctx[prop_payment_option]
-    #     # if ... wipe waiting_for_payment...
-    #     ctx[prop_asked_payment_count] = 1   # TODO do I need that? should be able to take out
-    #     if payment_option == PaymentOptions.PAYPAL:
-    #         ctx[rawio.prop_out] = verbaliser.get_random_phrase("paypal_option")
-    #         return rs.Emit(wipe=True)
-    #     elif payment_option == PaymentOptions.COIN:
-    #         ctx[rawio.prop_out] = verbaliser.get_random_phrase("coin_option")
-    #         return rs.Emit(wipe=True)
-    #
-    # @rs.state(
-    #     cond=sig_insert_coins,
-    #     read=(prop_payment_option, prop_price),
-    #     write=(rawio.prop_out, prop_payment_success, prop_price),
-    #     signal=sig_finished_payment,
-    #     emit_detached=True)
-    # def payment_process(ctx: rs.ContextWrapper):
-    #     # TODO add verbalizer for all cases below
-    #     payment_option = ctx[prop_payment_option]
-    #     price = ctx[prop_price]
-    #     amount_paid, error_message = payment_communication(price, payment_option)
-    #     if amount_paid == 0:
-    #         ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_payment")
-    #     elif amount_paid < price:
-    #         ctx[rawio.prop_out] = verbaliser.get_random_phrase("amount_left") \
-    #                               .format(amount_left_over=amount_in_euros_and_cents(price - amount_paid))
-    #         ctx[prop_price] = price - amount_paid
-    #     elif amount_paid == price:
-    #         ctx[rawio.prop_out] = verbaliser.get_random_phrase("perfect_amount")
-    #         ctx[prop_payment_success] = True
-    #     elif amount_paid > price:
-    #         ctx[rawio.prop_out] = verbaliser.get_random_phrase("better_amount")\
-    #             .format(amount_too_much=amount_in_euros_and_cents(amount_paid - price))
-    #         ctx[prop_payment_success] = True
-    #     elif error_message:
-    #         ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_payment")
-    #     return rs.Emit(wipe=True)
-    #
-    # @rs.state(
-    #     cond=sig_finished_payment,
-    #     read=prop_payment_success,
-    #     write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops, prop_suggested_ice_cream,
-    #            prop_price, prop_payment_success, prop_payment_option, prop_asked_order_count),
-    #     signal=sig_payment_incomplete,
-    #     emit_detached=True)
-    # def after_payment(ctx: rs.ContextWrapper):
-    #     payment_success = ctx[prop_payment_success]
-    #     if payment_success:
-    #         ctx[rawio.prop_out] = verbaliser.get_random_phrase("luigi_farewell")
-    #         ctx[prop_flavor_scoop_tuple_list] = []
-    #         ctx[prop_flavors] = []
-    #         ctx[prop_scoops] = []
-    #         ctx[prop_suggested_ice_cream] = False
-    #         ctx[prop_price] = -1
-    #         ctx[prop_payment_option] = -1
-    #         ctx[prop_payment_success] = False
-    #         ctx[prop_asked_order_count] = 1
-    #     else:
-    #         return rs.Emit(wipe=True)
-    #
-    # @rs.state(
-    #    cond=interloc.prop_all.popped(),
-    #    write=(prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops, prop_suggested_ice_cream,
-    #            prop_price, prop_payment_success, prop_payment_option, prop_asked_order_count))
-    # def customer_left(ctx: rs.ContextWrapper):
-    #     ctx[prop_flavor_scoop_tuple_list] = []
-    #     ctx[prop_flavors] = []
-    #     ctx[prop_scoops] = []
-    #     ctx[prop_suggested_ice_cream] = False
-    #     ctx[prop_price] = -1
-    #     ctx[prop_payment_option] = -1
-    #     ctx[prop_payment_success] = False
-    #     ctx[prop_asked_order_count] = 1
+    @rs.state(
+        cond=(sig_asked_payment_method.max_age(15).min_age(-1) & sig_changed_payment_option.detached())
+             | sig_payment_incomplete,
+        read=prop_payment_option,
+        write=(rawio.prop_out, prop_asked_payment_count),
+        signal=sig_insert_coins_or_scan_qr,
+        emit_detached=True)
+    def start_payment(ctx: rs.ContextWrapper):
+        payment_option = ctx[prop_payment_option]
+        if payment_option == PaymentOptions.PAYPAL:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("paypal_option")
+            return rs.Emit(wipe=True)
+        elif payment_option == PaymentOptions.COIN:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("coin_option")
+            return rs.Emit(wipe=True)
+
+    @rs.state(
+        cond=sig_insert_coins_or_scan_qr,
+        read=(prop_payment_option, prop_price),
+        write=(rawio.prop_out, prop_payment_success, prop_price),
+        signal=sig_finished_payment,
+        emit_detached=True)
+    def payment_process(ctx: rs.ContextWrapper):
+        payment_option = ctx[prop_payment_option]
+        price = ctx[prop_price]
+        amount_paid, error_message = payment_communication(price, payment_option)
+        if amount_paid == 0:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_payment")
+        elif amount_paid < price:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("amount_left") \
+                                  .format(amount_left_over=amount_in_euros_and_cents(price - amount_paid))
+            ctx[prop_price] = price - amount_paid
+        elif amount_paid == price:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("perfect_amount")
+            ctx[prop_payment_success] = True
+        elif amount_paid > price:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("better_amount")\
+                .format(amount_too_much=amount_in_euros_and_cents(amount_paid - price))
+            ctx[prop_payment_success] = True
+        elif error_message:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_payment")
+        return rs.Emit(wipe=True)
+
+    @rs.state(
+        cond=sig_finished_payment,
+        read=prop_payment_success,
+        write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops, prop_suggested_ice_cream,
+               prop_price, prop_payment_success, prop_payment_option, prop_asked_order_count, prop_asked_payment_count),
+        signal=sig_payment_incomplete,
+        emit_detached=True)
+    def after_payment(ctx: rs.ContextWrapper):
+        payment_success = ctx[prop_payment_success]
+        if payment_success:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("luigi_farewell")
+            ctx[prop_flavor_scoop_tuple_list] = []
+            ctx[prop_flavors] = []
+            ctx[prop_scoops] = []
+            ctx[prop_suggested_ice_cream] = False
+            ctx[prop_price] = -1
+            ctx[prop_payment_option] = -1
+            ctx[prop_payment_success] = False
+            ctx[prop_asked_order_count] = 1
+            ctx[prop_asked_payment_count] = 1
+        else:
+            return rs.Emit(wipe=True)
+
+    @rs.state(
+       cond=interloc.prop_all.popped(),
+       write=(prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops, prop_suggested_ice_cream,
+               prop_price, prop_payment_success, prop_payment_option, prop_asked_order_count, prop_asked_payment_count))
+    def customer_left(ctx: rs.ContextWrapper):
+        ctx[prop_flavor_scoop_tuple_list] = []
+        ctx[prop_flavors] = []
+        ctx[prop_scoops] = []
+        ctx[prop_suggested_ice_cream] = False
+        ctx[prop_price] = -1
+        ctx[prop_payment_option] = -1
+        ctx[prop_payment_success] = False
+        ctx[prop_asked_order_count] = 1
+        ctx[prop_asked_payment_count] = 1
 
 
 # -------------------- functions outside module -------------------- #
@@ -633,19 +626,19 @@ def amount_in_euros_and_cents(amount):
 
 
 def scooping_feedback_cb(feedback):
-    # TODO do something with the feedback like writing it to a global value that can be checked by an abort-state
+    # TODO do something with the feedback like writing it to a global value that can be checked by an abort-state?
     print('Feedback:', list(feedback.finished_flavors))
 
 
 def payment_communication(price, payment_option):
-    # rospy.wait_for_service('payment')
-    # try:
-    #     payment = rospy.ServiceProxy('payment', Payment)
-    #     response = payment(np.uint16(price), np.uint8(payment_option))
-    #     return response.amount_paid, response.error_message
-    # except rospy.ROSInterruptException as e:
-    #     print('Service call failed:', e)
+    rospy.wait_for_service('payment')
+    try:
+        payment = rospy.ServiceProxy('payment', Payment)
+        response = payment(np.uint16(price), np.uint8(payment_option))
+        return response.amount_paid, response.error_message
+    except rospy.ROSInterruptException as e:
+        print('Service call failed:', e)
     # If luigi module is run without ROS, comment everything from above (including imports) and uncomment this:
     # print("in payment communication - price: {} option: {}".format(price, payment_option))
     # time.sleep(4)
-    return 220, ""
+    # return 220, ""

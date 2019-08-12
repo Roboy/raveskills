@@ -48,3 +48,13 @@ opts:
 - "i didn't understand your order, can you repeat it?"
 - "sorry, this amount of ice cream cannot be served, please tell me a correct order"
 - "sorry, this amount of ice cream cannot be served, please repeat your order"
+---
+type: phrases
+name: "order_aborted"
+opts:
+- "it seems like you don't want to tell me a complete order - no ice cream for you then"
+- "it seems like you don't want ice cream anymore... i will stop serving you"
+- "i feel like you don't want ice cream anymore... i will stop serving you"
+- "since you don't answer my questions, i will stop serving ice cream to you now"
+- "it seems like you don't want to finish your order, i will stop serving ice cream to you now"
+- "it seems like you don't want to finish your order, no ice cream for you then"
