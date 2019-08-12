@@ -32,6 +32,7 @@ class PaymentOptions(IntEnum):
 
 
 with rs.Module(name="Luigi"):
+
     # ----------- ROS scooping action client ---------------------
 
     rospy.init_node('scooping_client_py')
@@ -76,7 +77,6 @@ with rs.Module(name="Luigi"):
     sig_ask_again_order = rs.Signal("ask_again_order")
     sig_asked_payment_method = rs.Signal("asked_payment_method")
     sig_send_to_scooping = rs.Signal("send_to_scooping")
-
 
     # -------------------- states: detection -------------------- #
 
@@ -398,7 +398,6 @@ with rs.Module(name="Luigi"):
         goal = OrderIceCreamGoal()  # uses the action client declared in the beginning of the module
         goal.flavors = flavors
         goal.scoops = scoops
-        print("sending:", goal)
         client.send_goal(goal, feedback_cb=scooping_feedback_cb)
         client.wait_for_result()
         result = client.get_result()

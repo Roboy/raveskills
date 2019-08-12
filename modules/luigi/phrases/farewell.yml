@@ -1,12 +1,12 @@
 type: phrases
 name: "payment"
 opts:
-- "alrighty, payment time then! you owe me {cost} euros for the {order}. how do you want to pay?"
-- "wow it took some time. That will be {cost} euros for the {order}. what payment method do you prefer?"
-- "do you want some extra fries with that? just kidding {cost} euros for the {order}. how do you want to pay?"
-- "we are all set! i just need {cost} euros for the {order}. what payment method do you want to use?"
-- "wow it took some time. That will be {cost} euros for the {order}. how do you want to pay?"
-- "now for the for the {order} i will need {cost} euros. sorry no money no ice cream! how do you want to pay?"
+- "payment time! you owe me {cost} euros for the {order}. how do you want to pay?"
+- "that will be {cost} euros for the {order}. what payment method do you prefer?"
+- "do you want some extra frais with that? just kidding, {cost} euros for the {order}. how do you want to pay?"
+- "all set! i get {cost} euros for the {order}. what payment method do you want to use?"
+- "that will be {cost} euros for the {order}. how do you want to pay?"
+- "for the {order} i will need {cost} euros. no money no ice cream! how do you want to pay?"
 ---
 type: phrases
 name: "unexpected"
@@ -24,14 +24,14 @@ opts:
 - "that's the spirit! what more do you want?"
 - "this is great! tell me, what do you want?"
 - "now we are talking! what more do you want?"
-- "i would also get more ice cream! but unfortunately i am vendor not a consumer. also i am roboy. anyway what do you want?"
+- "good choice! what do you want?"
 ---
 type: phrases
 name: "luigi_farewell"
 opts:
 - "thanks for buying ice cream - enjoy and come back anytime you like!"
 - "i hope you are satisfied with this experience! hope to see you again!"
-- "thanks for drooping by and remember there is always time for ice cream!"
+- "thanks for dropping by and remember there is always time for ice cream!"
 - "what a journey it was! i hope to see you again soon"
-- "i hope you are satisfied with your order. see you soon dear consumer!"
-- "thank you! i like selling ice cream so much. because it is only thing i can do. please come back again!"
+- "i hope you are satisfied with your order. see you soon!"
+- "thank you! please come back again!"
