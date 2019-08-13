@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/Roboy/raveskills.svg?branch=master)](https://travis-ci.org/Roboy/raveskills)
+[![codecov](https://codecov.io/gh/Roboy/raveskills/branch/master/graph/badge.svg)](https://codecov.io/gh/Roboy/raveskills)
+
 # raveskills
 Roboy skills developed using the ravestate framework
 
