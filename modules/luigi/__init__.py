@@ -15,10 +15,12 @@ from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
 import asyncio
 import websockets
+import pickle
 
 cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
 
-#TODO change globals
+location =""
+server = 'ws://localhost:8765'#TODO change to cloud
 
 FLAVORS = {"chocolate", "vanilla"}
 FLAVOR_SYNONYMS = {"flavor", "kind"}
@@ -261,7 +263,7 @@ with rs.Module(name="Luigi"):
         signal=sig_send_eta,
         emit_detached=True)
     def get_loc_send_eta(ctx: rs.ContextWrapper):
-        communication_with_cloud()
+        communication_with_cloud(server)
         return rs.Emit()
 
 
@@ -270,9 +272,10 @@ with rs.Module(name="Luigi"):
         signal=sig_has_arrived,
         emit_detached=True)
     def arrived_at_location(ctx: rs.ContextWrapper):
-        has_arrived = ad_communication("")
+        has_arrived = True #TODO change this with has_arrived from ros
         if has_arrived:
             return rs.Emit()
+
 
     @rs.state(
         cond=sig_has_arrived.max_age(-1),
@@ -601,17 +604,25 @@ def ad_communication(location):
     # If driving module is run without ROS, comment everything from above (including imports) and uncomment this:
     return 41, ""
 
-def communication_with_cloud():
+def communication_with_cloud(server):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    asyncio.get_event_loop().run_until_complete(roboy_client())
+    asyncio.get_event_loop().run_until_complete(listen(server))
+    #print("Listening is finished")
+    eta, err = ad_communication(location)
+    #print("Ros communication is finished")
+    asyncio.get_event_loop().run_until_complete(say(server,eta))
+    #print("Sending eta is finished")
     loop.close()
 
 
+async def say(server, eta):
+    async with websockets.connect(server+'/pub') as websocket:
+        eta_encoding = pickle.dumps(eta)
+        await websocket.send(eta_encoding)
 
-async def roboy_client():
-    uri = "ws://localhost:8765"
-    async with websockets.connect(uri) as websocket:
-        location = await websocket.recv()
-        eta, err = ad_communication(location)
-        await websocket.send(str(eta))
+async def listen(server):
+    global location
+    async with websockets.connect(server+'/sub') as websocket:
+        location_encoding = await websocket.recv()
+        location = pickle.loads(location_encoding, encoding='bytes')  # .decode()
