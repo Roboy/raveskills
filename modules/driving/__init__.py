@@ -5,7 +5,18 @@ import ravestate_rawio as rawio
 import ravestate_idle as idle
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
+from reggol import get_logger
+logger = get_logger(__name__)
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
+
+ROS_AVAILABLE = True
+try:
+    import rospy
+    from roboy_cognition_msgs.srv import DriveToLocation
+except ImportError:
+    logger.error("Could not import ROS dependencies. Please make sure to have ROS installed.")
+    ROS_AVAILABLE = False
+
 
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
 NEGATION_SYNONYMS = {"no", "not"}
@@ -33,7 +44,6 @@ with rs.Module(name="Luigi"):
     sig_yesno_detected = rs.Signal("yesno")
     sig_changed_flavor_or_scoops = rs.Signal("changed_flavor_or_scoops")
     sig_telegram_conversation = rs.Signal("telegram_conversation")
-    sig_has_arrived = rs.Signal("has_arrived")
     sig_ice_cream_desire = rs.Signal("ice_cream_desire")
     sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
 
@@ -129,16 +139,6 @@ with rs.Module(name="Luigi"):
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("greet_general")
 
     @rs.state(
-        cond=sig_ice_cream_desire.max_age(-1),
-        write=(rawio.prop_out, prop_suggested_ice_cream),
-        signal=sig_start_order_question,
-        emit_detached=True)
-    def ice_cream_desire_will_be_fulfilled(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = "you are talking to the right person, i can get you some ice cream!"
-        ctx[prop_suggested_ice_cream] = True
-        return rs.Emit()
-
-    @rs.state(
         cond=sig_start_order_question.max_age(-1),
         write=rawio.prop_out)
     def ask_for_location(ctx: rs.ContextWrapper):
@@ -146,17 +146,18 @@ with rs.Module(name="Luigi"):
 
     @rs.state(
         read=prop_location,
-        write=rawio.prop_out,
-        signal=sig_has_arrived,  # TODO remove, this is just a dummy, should be emitted when AD team signals arrival
-        emit_detached=True)
+        write=rawio.prop_out)
     def known_location(ctx: rs.ContextWrapper):
         location = ctx[prop_location]
         if location == "unknown":
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("location_qa")
         else:
-            ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location_qa") \
-                .format(location=location, min=get_arrival_time())
-            return rs.Emit()
+            eta, path_found, error_msg = ad_communication(location)
+            if path_found:
+                ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location_qa") \
+                    .format(location=location, min=eta)
+            else:
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_path")
 
 
 # -------------------- functions outside module -------------------- #
@@ -168,6 +169,14 @@ def extract_location(prop_tokens):
     return "unknown"
 
 
-def get_arrival_time():
-    # TODO receive time from AD team that says how long they will need to get to the requested location
-    return 42
+def ad_communication(location):
+    if ROS_AVAILABLE:
+        rospy.wait_for_service('autonomous_driving')
+        try:
+            drive_to_location = rospy.ServiceProxy('autonomous_driving', DriveToLocation)
+            response = drive_to_location(location)
+            return response.eta, response.path_found, response.error_message
+        except rospy.ROSInterruptException as e:
+            logger.error('Service call failed:', e)
+    else:
+        return 42, True, ""

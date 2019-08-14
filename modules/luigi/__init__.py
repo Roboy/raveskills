@@ -18,7 +18,7 @@ try:
     from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
     from roboy_cognition_msgs.srv import Payment
 except ImportError:
-    logger.error("Could not import rclpy. Please make sure to have ROS2 installed.")
+    logger.error("Could not import ROS dependencies. Please make sure to have ROS installed.")
     ROS_AVAILABLE = False
 
 FLAVORS = {"chocolate", "vanilla"}
