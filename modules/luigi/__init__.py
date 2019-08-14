@@ -3,18 +3,23 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
-import rospy
-import actionlib
 import numpy as np
-from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
-from roboy_cognition_msgs.srv import Payment
-from enum import IntEnum
-from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
-
+from ravestate_verbaliser import verbaliser
+from enum import IntEnum
+from reggol import get_logger
+logger = get_logger(__name__)
 verbaliser.add_folder(join(dirname(realpath(__file__)) + "/phrases"))
 
-cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
+ROS_AVAILABLE = True
+try:
+    import rospy
+    import actionlib
+    from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
+    from roboy_cognition_msgs.srv import Payment
+except ImportError:
+    logger.error("Could not import rclpy. Please make sure to have ROS2 installed.")
+    ROS_AVAILABLE = False
 
 FLAVORS = {"chocolate", "vanilla"}
 FLAVOR_SYNONYMS = {"flavor", "kind"}
@@ -25,6 +30,8 @@ ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
 PAYMENT_OPTION_SYNONYMS = {"paypal", "cash", "coins", "coin", "money"}
 PAY_SYNONYMS = {"pay", "want pay", "pay will", "pay can", "pay could", "use will", "like pay"}
 
+cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
+
 
 class PaymentOptions(IntEnum):
     COIN = 0
@@ -33,11 +40,43 @@ class PaymentOptions(IntEnum):
 
 with rs.Module(name="Luigi"):
 
-    # ----------- ROS scooping action client ---------------------
+    # ----------- ROS client and methods ---------------- #
 
-    rospy.init_node('scooping_client_py')
-    client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
-    client.wait_for_server()
+    if ROS_AVAILABLE:
+        rospy.init_node('scooping_client_py')
+        client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
+        client.wait_for_server()
+
+    def scooping_communication(flavor_scoop_tuple_list):
+        if ROS_AVAILABLE:
+            flavors = [x for x, _ in flavor_scoop_tuple_list]
+            scoops = [y for _, y in flavor_scoop_tuple_list]
+            goal = OrderIceCreamGoal()
+            goal.flavors = flavors
+            goal.scoops = scoops
+            client.send_goal(goal, feedback_cb=scooping_feedback_cb)
+            client.wait_for_result()
+            return client.get_result.success
+        else:
+            return True
+
+    def scooping_feedback_cb(feedback):
+        # TODO implement feedback: add ctx, rawio.out etc as parameters
+        print('Feedback:', list(feedback.finished_flavors))
+
+    def payment_communication(price, payment_option):
+        if ROS_AVAILABLE:
+            rospy.wait_for_service('payment')
+            try:
+                payment = rospy.ServiceProxy('payment', Payment)
+                # TODO adjust for new payment interface!
+                response = payment(np.uint16(price), np.uint8(payment_option))
+                return response.amount_paid, response.error_message
+            except rospy.ROSInterruptException as e:
+                logger.error('Service call failed:', e)
+        else:
+            return 242, ""
+
 
     # -------------------- properties -------------------- #
 
@@ -82,27 +121,14 @@ with rs.Module(name="Luigi"):
 
     @rs.state(
         cond=nlp.sig_is_question,
-        read=nlp.prop_tokens,
-        write=rawio.prop_out)
-    def detect_specific_flavor_question(ctx: rs.ContextWrapper):
-        tokens = ctx[nlp.prop_tokens]
-        if FLAVORS & set(tokens):
-            # TODO deal with question
-            ctx[rawio.prop_out] = "you asked a question about some flavor..."
-        else:
-            return rs.Resign()
-
-
-    @rs.state(
-        cond=nlp.sig_is_question,
         read=nlp.prop_lemmas,
         write=rawio.prop_out)
     def detect_flavor_question(ctx: rs.ContextWrapper):
         lemmas = ctx[nlp.prop_lemmas]
         if FLAVOR_SYNONYMS & set(lemmas):
+            # TODO add verbalizer
             ctx[rawio.prop_out] = "i'm selling chocolate and vanilla today, both are pretty yummy... " \
                                   "gonna be hard to choose for you"
-
 
     @rs.state(
         cond=nlp.prop_tokens.changed(),
@@ -120,7 +146,6 @@ with rs.Module(name="Luigi"):
             # "can i get some ice cream?"
             # "i want ice cream!"
             return rs.Emit(wipe=True)
-
 
     @rs.state(
         cond=nlp.prop_tokens.changed(),
@@ -196,7 +221,6 @@ with rs.Module(name="Luigi"):
                 ctx[prop_scoops] = prop_scoops.read() + scoops
             return rs.Emit(wipe=True)
 
-
     @rs.state(
         cond=nlp.prop_tokens.changed(),
         read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas),
@@ -252,7 +276,6 @@ with rs.Module(name="Luigi"):
             ctx[prop_payment_option] = PaymentOptions.PAYPAL if "paypal" in tokens else PaymentOptions.COIN
             return rs.Emit(wipe=True)
 
-
     @rs.state(
         read=nlp.prop_yesno,
         signal=sig_yesno_detected)
@@ -261,8 +284,14 @@ with rs.Module(name="Luigi"):
         if yesno == "yes" or yesno == "no":
             return rs.Emit(wipe=True)
 
-
     # -------------------- states: conversation flow -------------------- #
+
+    @rs.state(
+        cond=sig_has_arrived,
+        write=rawio.prop_out)
+    def arrived_at_location(ctx: rs.ContextWrapper):
+        # TODO implement connection to AD
+        ctx[rawio.prop_out] = "hey you, nice to see you in person. now it's ice cream time!"
 
     @rs.state(
         cond=interloc.prop_all.pushed().detached().min_age(2)
@@ -279,7 +308,6 @@ with rs.Module(name="Luigi"):
             ctx[prop_suggested_ice_cream] = True
             return rs.Emit(wipe=True)
 
-
     @rs.state(
         cond=sig_suggested_ice_cream.max_age(20).min_age(-1) & sig_yesno_detected | sig_changed_flavor_or_scoops,
         read=(nlp.prop_yesno, prop_flavors, prop_scoops),
@@ -294,15 +322,6 @@ with rs.Module(name="Luigi"):
             return rs.Emit(wipe=True)
         elif ctx[nlp.prop_yesno] == "no":
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("greet_general")
-
-
-    @rs.state(
-        cond=sig_has_arrived,
-        write=rawio.prop_out)
-    def arrived_at_location(ctx: rs.ContextWrapper):
-        # TODO implement connection to AD
-        ctx[rawio.prop_out] = "hey you, nice to see you in person. now it's ice cream time!"
-
 
     @rs.state(
         cond=sig_changed_flavor_or_scoops | sig_ask_again_order,
@@ -378,7 +397,6 @@ with rs.Module(name="Luigi"):
         if ctx[nlp.prop_yesno] == "yes":
             flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
             complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
-            # TODO it sometimes skips prepare order in tests
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("preparing_order").format(order=complete_order)
             ctx[prop_price] = complete_cost * 100  # price is in cents
             return rs.Emit(wipe=True)
@@ -392,16 +410,8 @@ with rs.Module(name="Luigi"):
         signal=sig_start_payment,
         emit_detached=True)
     def send_order_to_scooping(ctx: rs.ContextWrapper):
-        flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
-        flavors = [x for x, _ in flavor_scoop_tuple_list]
-        scoops = [y for _, y in flavor_scoop_tuple_list]
-        goal = OrderIceCreamGoal()  # uses the action client declared in the beginning of the module
-        goal.flavors = flavors
-        goal.scoops = scoops
-        client.send_goal(goal, feedback_cb=scooping_feedback_cb)
-        client.wait_for_result()
-        result = client.get_result()
-        if not result.success:
+        success = scooping_communication(ctx[prop_flavor_scoop_tuple_list])
+        if not success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop convo? output result.error?
         else:
             return rs.Emit(wipe=True)
@@ -622,22 +632,3 @@ def amount_in_euros_and_cents(amount):
         return "{euros} {euro_string}".format(euros=euros, euro_string=euro_string)
     elif cents:
         return "{cents} {cent_string}".format(cents=cents, cent_string=cent_string)
-
-
-def scooping_feedback_cb(feedback):
-    # TODO do something with the feedback like writing it to a global value that can be checked by an abort-state?
-    print('Feedback:', list(feedback.finished_flavors))
-
-
-def payment_communication(price, payment_option):
-    rospy.wait_for_service('payment')
-    try:
-        payment = rospy.ServiceProxy('payment', Payment)
-        response = payment(np.uint16(price), np.uint8(payment_option))
-        return response.amount_paid, response.error_message
-    except rospy.ROSInterruptException as e:
-        print('Service call failed:', e)
-    # If luigi module is run without ROS, comment everything from above (including imports) and uncomment this:
-    # print("in payment communication - price: {} option: {}".format(price, payment_option))
-    # time.sleep(4)
-    # return 220, ""
