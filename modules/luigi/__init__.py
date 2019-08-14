@@ -56,7 +56,7 @@ with rs.Module(name="Luigi"):
             goal.scoops = scoops
             client.send_goal(goal, feedback_cb=scooping_feedback_cb)
             client.wait_for_result()
-            return client.get_result.success
+            return client.get_result().success
         else:
             return True
 
@@ -64,13 +64,15 @@ with rs.Module(name="Luigi"):
         # TODO implement feedback: add ctx, rawio.out etc as parameters
         print('Feedback:', list(feedback.finished_flavors))
 
-    def payment_communication(price, payment_option):
+    def payment_communication(price, payment_option, flavor_scoop_tuple_list):
+        flavors = [x for x, _ in flavor_scoop_tuple_list]
+        scoops = [y for _, y in flavor_scoop_tuple_list]
         if ROS_AVAILABLE:
             rospy.wait_for_service('payment')
             try:
                 payment = rospy.ServiceProxy('payment', Payment)
                 # TODO adjust for new payment interface!
-                response = payment(np.uint16(price), np.uint8(payment_option))
+                response = payment(np.uint16(price), np.uint8(payment_option), flavors, scoops)
                 return response.amount_paid, response.error_message
             except rospy.ROSInterruptException as e:
                 logger.error('Service call failed:', e)
@@ -456,14 +458,14 @@ with rs.Module(name="Luigi"):
 
     @rs.state(
         cond=sig_insert_coins_or_scan_qr,
-        read=(prop_payment_option, prop_price),
+        read=(prop_payment_option, prop_price, prop_flavor_scoop_tuple_list),
         write=(rawio.prop_out, prop_payment_success, prop_price),
         signal=sig_finished_payment,
         emit_detached=True)
     def payment_process(ctx: rs.ContextWrapper):
         payment_option = ctx[prop_payment_option]
         price = ctx[prop_price]
-        amount_paid, error_message = payment_communication(price, payment_option)
+        amount_paid, error_message = payment_communication(price, payment_option, ctx[prop_flavor_scoop_tuple_list])
         if amount_paid == 0:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_payment")
         elif amount_paid < price:
