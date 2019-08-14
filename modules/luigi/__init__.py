@@ -120,17 +120,6 @@ with rs.Module(name="Luigi"):
     # -------------------- states: detection -------------------- #
 
     @rs.state(
-        cond=nlp.sig_is_question,
-        read=nlp.prop_lemmas,
-        write=rawio.prop_out)
-    def detect_flavor_question(ctx: rs.ContextWrapper):
-        lemmas = ctx[nlp.prop_lemmas]
-        if FLAVOR_SYNONYMS & set(lemmas):
-            # TODO add verbalizer
-            ctx[rawio.prop_out] = "i'm selling chocolate and vanilla today, both are pretty yummy... " \
-                                  "gonna be hard to choose for you"
-
-    @rs.state(
         cond=nlp.prop_tokens.changed(),
         read=(nlp.prop_triples, nlp.prop_lemmas),
         signal=sig_ice_cream_desire)

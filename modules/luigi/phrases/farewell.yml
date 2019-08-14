@@ -29,9 +29,10 @@ opts:
 type: phrases
 name: "luigi_farewell"
 opts:
-- "thanks for buying ice cream - enjoy and come back anytime you like!"
-- "i hope you are satisfied with this experience! hope to see you again!"
-- "thanks for dropping by and remember there is always time for ice cream!"
-- "what a journey it was! i hope to see you again soon"
-- "i hope you are satisfied with your order. see you soon!"
-- "thank you! please come back again!"
+- "please pick up your ice cream - enjoy and come back anytime you like!"
+- "thanks for buying ice cream - please pick it up and enjoy!"
+- "don't forget to take your ice cream with you! hope to see you again!"
+- "please pick up your ice cream, i hope you are satisfied with this experience!"
+- "you can pick up your ice cream now. thanks for dropping by and remember there is always time for ice cream!"
+- "thanks for picking up your ice cream! what a journey it was!"
+- "don't forget to take your ice cream with you. see you soon!"
