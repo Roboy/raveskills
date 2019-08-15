@@ -38,68 +38,100 @@ with rs.Module(name="Luigi"):
 
     # -------------------- signals -------------------- #
 
-    sig_start_order_question = rs.Signal("start_order_question")
-    sig_finish_order_question = rs.Signal("finish_order_question")
-    sig_finished_payment = rs.Signal("finished_payment")
+    sig_location_question = rs.Signal("location_question")
     sig_yesno_detected = rs.Signal("yesno")
-    sig_changed_flavor_or_scoops = rs.Signal("changed_flavor_or_scoops")
-    sig_telegram_conversation = rs.Signal("telegram_conversation")
-    sig_ice_cream_desire = rs.Signal("ice_cream_desire")
+    sig_ice_cream_desire_and_not_location = rs.Signal("ice_cream_desire_and_not_location")
+    sig_ice_cream_desire_and_location = rs.Signal("ice_cream_desire_and_location")
     sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
+    sig_asked_for_location = rs.Signal("asked_for_location")
 
-    # -------------------- states: detection -------------------- #
+    # -------------------- detection methods -------------------- #
 
-    @rs.state(
-        cond=nlp.prop_tokens.changed(),
-        read=(nlp.prop_triples, nlp.prop_lemmas),
-        signal=sig_ice_cream_desire)
-    def detect_ice_cream_desire(ctx: rs.ContextWrapper):
+    def detect_triple_ice_cream_desire(ctx):
         triples = ctx[nlp.prop_triples]
         lemmas = ctx[nlp.prop_lemmas]
-        if triples[0].match_either_lemma(subj={"i"}) and \
-                triples[0].match_either_lemma(pred=DESIRE_SYNONYMS) and \
-                triples[0].match_either_lemma(obj=ICE_CREAM_SYNONYMS) and \
-                not NEGATION_SYNONYMS & set(lemmas):
-            # signal is emitted when customer expresses the wish for ice cream using phrases like
-            # "i would like to have ice cream please"
-            # "can i get some ice cream?"
-            # "i want ice cream!"
-            return rs.Emit()
+        ice_cream_desire = False
+        for i in range(0, len(triples)):
+            if triples[i].match_either_lemma(subj={"i"}) and \
+                    triples[i].match_either_lemma(pred=DESIRE_SYNONYMS) and \
+                    triples[i].match_either_lemma(obj=ICE_CREAM_SYNONYMS) and \
+                    not NEGATION_SYNONYMS & set(lemmas):
+                # signal is emitted when customer expresses the wish for ice cream using phrases like
+                # "i would like to have ice cream please"
+                # "can i get some ice cream?"
+                # "i want ice cream!"
+                ice_cream_desire = True
+        return ice_cream_desire
 
-    @rs.state(
-        cond=nlp.prop_tokens.changed(),
-        read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas),
-        write=prop_location)
-    def detect_location(ctx: rs.ContextWrapper):
+    def detect_triple_location(ctx):
         tokens = ctx[nlp.prop_tokens]
         triples = ctx[nlp.prop_triples]
         lemmas = ctx[nlp.prop_lemmas]
-        if triples[0].match_either_lemma(pred=PLACES) and \
-                not NEGATION_SYNONYMS & set(lemmas):
-            # for expressing locations with just single words such as "mensa" or "mi building"
-            ctx[prop_location] = extract_location(tokens)
-        elif triples[0].match_either_lemma(subj={"i"}) and \
-                triples[0].match_either_lemma(pred={"be"}) and \
-                triples[0].match_either_lemma(obj=PLACES) and \
-                not NEGATION_SYNONYMS & set(lemmas):
-            # for expressing locations using sentences like
-            # "i am in front of the mensa"
-            # "i am near the mi"
-            ctx[prop_location] = extract_location(tokens)
-        elif triples[0].match_either_lemma(pred=PROXIMITY_SYNONYMS) and \
-                triples[0].match_either_lemma(obj=PLACES) and \
-                not NEGATION_SYNONYMS & set(lemmas):
-            # for expressing locations using phrases like
-            # "right by the mensa"
-            # "at the mi"
-            ctx[prop_location] = extract_location(tokens)
-        elif triples[0].match_either_lemma(pred={"meet", "let"}) and \
-                triples[0].match_either_lemma(obj=PLACES) and \
-                not NEGATION_SYNONYMS & set(lemmas):
-            # for expressing locations using phrases like
-            # "let's meet at the ubahn"
-            # "meet me at the mw"
-            ctx[prop_location] = extract_location(tokens)
+        location = ""
+        for i in range(0, len(triples)):
+            if triples[i].match_either_lemma(pred=PLACES) and \
+                    not NEGATION_SYNONYMS & set(lemmas):
+                # for expressing locations with just single words such as "mensa" or "mi building"
+                location = extract_location(tokens)
+            elif triples[i].match_either_lemma(subj={"i"}) and \
+                    triples[i].match_either_lemma(pred={"be"}) and \
+                    triples[i].match_either_lemma(obj=PLACES) and \
+                    not NEGATION_SYNONYMS & set(lemmas):
+                # for expressing locations using sentences like
+                # "i am in front of the mensa"
+                # "i am near the mi"
+                location = extract_location(tokens)
+            elif triples[i].match_either_lemma(pred=PROXIMITY_SYNONYMS) and \
+                    triples[i].match_either_lemma(obj=PLACES) and \
+                    not NEGATION_SYNONYMS & set(lemmas):
+                # for expressing locations using phrases like
+                # "right by the mensa"
+                # "at the mi"
+                location = extract_location(tokens)
+            elif triples[i].match_either_lemma(pred={"meet", "let", "come"}) and \
+                    not NEGATION_SYNONYMS & set(lemmas):
+                # for expressing locations using phrases like
+                # "let's meet at the ubahn"
+                # "meet me at the mw"
+                # "can you come to mensa"
+                location = extract_location(tokens)
+        return location
+
+    # -------------------- detection states -------------------- #
+
+    @rs.state(
+        cond=nlp.prop_tokens.changed(),
+        read=(nlp.prop_triples, nlp.prop_tokens, nlp.prop_lemmas),
+        signal=sig_ice_cream_desire_and_not_location)
+    def detect_ice_cream_desire_and_not_location(ctx: rs.ContextWrapper):
+        ice_cream_desire = detect_triple_ice_cream_desire(ctx)
+        location = detect_triple_location(ctx)
+        if ice_cream_desire and not location:
+            return rs.Emit(wipe=True)
+
+    @rs.state(
+        cond=nlp.prop_tokens.changed(),
+        read=(nlp.prop_triples, nlp.prop_tokens, nlp.prop_lemmas),
+        write=prop_location,
+        signal=sig_ice_cream_desire_and_location)
+    def detect_ice_cream_desire_and_location(ctx: rs.ContextWrapper):
+        ice_cream_desire = detect_triple_ice_cream_desire(ctx)
+        location = detect_triple_location(ctx)
+        if ice_cream_desire and location:
+            ctx[prop_location] = location
+            return rs.Emit(wipe=True)
+
+    @rs.state(
+        cond=nlp.prop_tokens.changed() & sig_asked_for_location.detached().max_age(-1),
+        read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas),
+        write=prop_location,
+        signal=sig_ice_cream_desire_and_location,
+        emit_detached=True)
+    def detect_location(ctx: rs.ContextWrapper):
+        location = detect_triple_location(ctx)
+        if location:
+            ctx[prop_location] = location
+            return rs.Emit(wipe=True)
 
     @rs.state(
         read=nlp.prop_yesno,
@@ -107,7 +139,7 @@ with rs.Module(name="Luigi"):
     def yesno_detection(ctx: rs.ContextWrapper):
         yesno = ctx[nlp.prop_yesno]
         if yesno == "yes" or yesno == "no":
-            return rs.Emit()
+            return rs.Emit(wipe=True)
 
 
     # -------------------- states: conversation flow -------------------- #
@@ -123,31 +155,47 @@ with rs.Module(name="Luigi"):
         if not has_already_asked:
             ctx[rawio.prop_out] = verbaliser.get_random_question('greet_general')
             ctx[prop_suggested_ice_cream] = True
-            return rs.Emit()
+            return rs.Emit(wipe=True)
+
+    @rs.state(
+        cond=sig_ice_cream_desire_and_not_location,
+        read=prop_suggested_ice_cream,
+        write=(rawio.prop_out, prop_suggested_ice_cream),
+        signal=sig_location_question,
+        emit_detached=True)
+    def react_to_ice_cream_desire_and_no_location(ctx: rs.ContextWrapper):
+        ctx[rawio.prop_out] = verbaliser.get_random_successful_answer('greet_general')
+        ctx[prop_suggested_ice_cream] = True
+        return rs.Emit(wipe=True)
 
     @rs.state(
         cond=sig_suggested_ice_cream.max_age(-1) & sig_yesno_detected,
         read=nlp.prop_yesno,
         write=rawio.prop_out,
-        signal=sig_start_order_question,
+        signal=sig_location_question,
         emit_detached=True)
     def analyse_ice_cream_suggestion_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno] == "yes":
             ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("greet_general")
-            return rs.Emit()
+            return rs.Emit(wipe=True)
         elif ctx[nlp.prop_yesno] == "no":
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("greet_general")
 
     @rs.state(
-        cond=sig_start_order_question.max_age(-1),
-        write=rawio.prop_out)
+        cond=sig_location_question.max_age(-1),
+        write=rawio.prop_out,
+        signal=sig_asked_for_location,
+        emit_detached=True)
     def ask_for_location(ctx: rs.ContextWrapper):
         ctx[rawio.prop_out] = verbaliser.get_random_question("location_qa")
+        return rs.Emit(wipe=True)
 
     @rs.state(
+        cond=sig_ice_cream_desire_and_location,
         read=prop_location,
-        write=rawio.prop_out)
+        write=(rawio.prop_out, prop_suggested_ice_cream))
     def known_location(ctx: rs.ContextWrapper):
+        ctx[prop_suggested_ice_cream] = True
         location = ctx[prop_location]
         if location == "unknown":
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("location_qa")
