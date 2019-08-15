@@ -38,6 +38,10 @@ class PaymentOptions(IntEnum):
     PAYPAL = 1
 
 
+class ScoopingFeedbackMessages(IntEnum):
+    NONE = -1
+    TIME = -2
+
 with rs.Module(name="Luigi"):
 
     # ----------- ROS client and methods ---------------- #
@@ -47,24 +51,32 @@ with rs.Module(name="Luigi"):
         client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
         client.wait_for_server()
 
-    def scooping_communication(flavor_scoop_tuple_list, ctx):
-        if ROS_AVAILABLE:
-            flavors = [x for x, _ in flavor_scoop_tuple_list]
-            scoops = [y for _, y in flavor_scoop_tuple_list]
-            goal = OrderIceCreamGoal()
-            goal.flavors = flavors
-            goal.scoops = scoops
-            client.send_goal(goal, feedback_cb=scooping_feedback_cb)  #("test parameter"))  # TODO fix
-            client.wait_for_result()
-            return client.get_result().success
-        else:
-            return True
+    class ScoopingCommunication:
+        def __init__(self):
+            # self.feedback = ScoopingFeedbackMessages.NONE
+            self.feedback = None
+            self.last_scooping_feedback_array = None
+            self.stop_feedback = False
 
-    def scooping_feedback_cb(feedback, example_parameter_string):
-        # if feedback.status_message == "something":
-        #     print(example_parameter_string)
-        print('Feedback field 1:', list(feedback.finished_scoops))
-        print('Feedback field 2:', feedback.status_message)
+        def send_order(self, flavor_scoop_tuple_list):
+            # self.feedback = ScoopingFeedbackMessages.NONE
+            self.feedback = None
+            self.stop_feedback = False
+            self.last_scooping_feedback_array = None
+            if ROS_AVAILABLE:
+                flavors = [x for x, _ in flavor_scoop_tuple_list]
+                scoops = [y for _, y in flavor_scoop_tuple_list]
+                goal = OrderIceCreamGoal()
+                goal.flavors = flavors
+                goal.scoops = scoops
+                client.send_goal(goal, feedback_cb=self.scooping_feedback_cb)
+            else:
+                self.stop_feedback = True
+
+        def scooping_feedback_cb(self, feedback):
+            self.feedback = (list(feedback.finished_scoops), feedback.status_message)
+
+    scooping_communication = ScoopingCommunication()
 
     def payment_communication(price, payment_option, flavor_scoop_tuple_list):
         flavors = [x for x, _ in flavor_scoop_tuple_list]
@@ -73,7 +85,6 @@ with rs.Module(name="Luigi"):
             rospy.wait_for_service('payment')
             try:
                 payment = rospy.ServiceProxy('payment', Payment)
-                # TODO adjust for new payment interface!
                 response = payment(np.uint16(price), np.uint8(payment_option), flavors, scoops)
                 return response.amount_paid, response.error_message
             except rospy.ROSInterruptException as e:
@@ -120,6 +131,7 @@ with rs.Module(name="Luigi"):
     sig_ask_again_order = rs.Signal("ask_again_order")
     sig_asked_payment_method = rs.Signal("asked_payment_method")
     sig_send_to_scooping = rs.Signal("send_to_scooping")
+    sig_loop_feedback = rs.Signal("loop_feedback")
 
     # -------------------- states: detection -------------------- #
 
@@ -397,14 +409,45 @@ with rs.Module(name="Luigi"):
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("continue_order")
 
     @rs.state(
-        cond=sig_send_to_scooping,
+        cond=sig_send_to_scooping.detached(),
+        read=prop_flavor_scoop_tuple_list)
+    def send_order_to_scooping(ctx: rs.ContextWrapper):
+        scooping_communication.send_order(ctx[prop_flavor_scoop_tuple_list])
+
+    @rs.state(
+        cond=sig_send_to_scooping.detached() | sig_loop_feedback,
+        write=rawio.prop_out,
+        signal=sig_loop_feedback,
+        emit_detached=True)
+    def feedback_state(ctx: rs.ContextWrapper):
+        if (ROS_AVAILABLE and client.get_result() is not None) \
+                or (not ROS_AVAILABLE and scooping_communication.stop_feedback):
+            return rs.Resign()
+        if scooping_communication.feedback is not None:
+            finished_scoops, status_message = scooping_communication.feedback
+            if not scooping_communication.last_scooping_feedback_array == finished_scoops:
+                scooping_communication.last_scooping_feedback_array = finished_scoops
+                if status_message == "more time":
+                    ctx[rawio.prop_out] = verbaliser.get_random_phrase("time")
+                else:
+                    scoops_left = finished_scoops.count(False)
+                    if scoops_left == 1:
+                        ctx[rawio.prop_out] = verbaliser.get_random_phrase("scoops_left").format(c=scoops_left, s="")
+                    elif scoops_left > 1:
+                        ctx[rawio.prop_out] = verbaliser.get_random_phrase("scoops_left").format(c=scoops_left, s="s")
+        return rs.Emit(wipe=True)
+
+    @rs.state(
+        cond=sig_loop_feedback,
         read=prop_flavor_scoop_tuple_list,
         write=rawio.prop_out,
         signal=sig_start_payment,
         emit_detached=True)
-    def send_order_to_scooping(ctx: rs.ContextWrapper):
-        success = scooping_communication(ctx[prop_flavor_scoop_tuple_list], ctx)
-        if not success:
+    def after_scooping(ctx: rs.ContextWrapper):
+        if (ROS_AVAILABLE and client.get_result() is None) \
+                or (not ROS_AVAILABLE and not scooping_communication.stop_feedback):
+            return rs.Resign()
+        if ROS_AVAILABLE and client.get_result() is not None and not client.get_result().success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop convo? output result.error?
         else:
             return rs.Emit(wipe=True)

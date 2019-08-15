@@ -58,3 +58,21 @@ opts:
 - "since you don't answer my questions, i will stop serving ice cream to you now"
 - "seems like you don't want to finish your order, i will stop serving ice cream to you now"
 - "seems like you don't want to finish your order, no ice cream for you then"
+---
+type: phrases
+name: "time"
+opts:
+- "give me another minute i am not the youngest anymore"
+- "this can take another minute or two but don't worry you'll get your ice cream soon enough"
+- "wow, today is not my day this will take a little bit more time..."
+- "sorry about making you wait please be patient for me"
+- "well well well roboy is not the faster ice cream seller in the world but definitely the most fun"
+---
+type: phrases
+name: "scoops_left"
+opts:
+- "yay, only {c} scoop{s} left for me to scoop"
+- "i am doing good, only {c} scoop{s} left to put into the cup..."
+- "crazy, i have only {c} scoop{s} left to scoop"
+- "wow now i only need to scoop {c} scoop{s} more"
+- "how sad that i only have to scoop {c} scoop{s} of ice cream more"
