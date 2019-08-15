@@ -24,7 +24,7 @@ opts:
 - "it would be helpful if you also told me what flavor you want {scoop} scoop{s} of ..."
 - "what flavor can i get you {scoop} scoop{s} of?"
 - "{scoop} scoop{s} of what exactly? could you tell me also the flavor?"
-- "ground control to major tom. it's time to tell me what flavor you want {scoops} scoop{s} of"
+- "ground control to major tom. it's time to tell me what flavor you want {scoop} scoop{s} of"
 - "i heard you want {scoop} scoop{s}. But what flavor exactly?"
 - "you know some numbers that is good. could you also tell me the flavor?"
 ---

@@ -16,15 +16,19 @@ class ScoopingActionServer:
         success = True
         feedback = OrderIceCreamFeedback()
         rate = rospy.Rate(1)
-        finished_flavors = [False for i in range(0, len(goal.flavors))]
+        finished_scoops = [False for _ in range(0, sum(goal.scoops))]
 
         for i in range(0, len(goal.flavors)):
             if self.a_server.is_preempt_requested():
                 self.a_server.set_preempted()
                 success = False
                 break
-            finished_flavors[i] = True
-            feedback.finished_flavors = finished_flavors
+            finished_scoops[i] = True
+            feedback.finished_scoops = finished_scoops
+            if i == 1:
+                feedback.status_message = "more time"
+            else:
+                feedback.status_message = "test status message"
             self.a_server.publish_feedback(feedback)
             rate.sleep()
             time.sleep(1)   # it takes some time to prepare ice cream

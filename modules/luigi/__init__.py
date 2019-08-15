@@ -47,22 +47,24 @@ with rs.Module(name="Luigi"):
         client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
         client.wait_for_server()
 
-    def scooping_communication(flavor_scoop_tuple_list):
+    def scooping_communication(flavor_scoop_tuple_list, ctx):
         if ROS_AVAILABLE:
             flavors = [x for x, _ in flavor_scoop_tuple_list]
             scoops = [y for _, y in flavor_scoop_tuple_list]
             goal = OrderIceCreamGoal()
             goal.flavors = flavors
             goal.scoops = scoops
-            client.send_goal(goal, feedback_cb=scooping_feedback_cb)
+            client.send_goal(goal, feedback_cb=scooping_feedback_cb)  #("test parameter"))  # TODO fix
             client.wait_for_result()
             return client.get_result().success
         else:
             return True
 
-    def scooping_feedback_cb(feedback):
-        # TODO implement feedback: add ctx, rawio.out etc as parameters
-        print('Feedback:', list(feedback.finished_flavors))
+    def scooping_feedback_cb(feedback, example_parameter_string):
+        # if feedback.status_message == "something":
+        #     print(example_parameter_string)
+        print('Feedback field 1:', list(feedback.finished_scoops))
+        print('Feedback field 2:', feedback.status_message)
 
     def payment_communication(price, payment_option, flavor_scoop_tuple_list):
         flavors = [x for x, _ in flavor_scoop_tuple_list]
@@ -401,7 +403,7 @@ with rs.Module(name="Luigi"):
         signal=sig_start_payment,
         emit_detached=True)
     def send_order_to_scooping(ctx: rs.ContextWrapper):
-        success = scooping_communication(ctx[prop_flavor_scoop_tuple_list])
+        success = scooping_communication(ctx[prop_flavor_scoop_tuple_list], ctx)
         if not success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop convo? output result.error?
         else:
