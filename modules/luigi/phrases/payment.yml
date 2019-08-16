@@ -54,3 +54,13 @@ opts:
 - "you are in luck human, our payment is not working today. so you get ice cream for free!"
 - "our payment is not working because of some error. what are the odds? you get your ice cream for free!"
 - "today is your lucky day, our payment is not working and you get your ice cream for free!"
+---
+type: phrases
+name: "telegram_arrival"
+opts:
+- "who here wanted ice cream?"
+- "so who here had been so brave to call me via telegram?"
+- "well well well no who talked to me over telegram?"
+- "whoever told me to drive here via telegram, please come up to the front"
+- "who had dared to call me via telegram so i could serve delicious ice cream?"
+- "whoever requested my presence on telegram, please come closer to start ordering"

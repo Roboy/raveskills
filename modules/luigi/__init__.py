@@ -3,9 +3,11 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
+import ravestate_phrases_basic_en as lang
 import numpy as np
+import time
 from os.path import realpath, dirname, join
-from ravestate_verbaliser import verbaliser
+from ravestate_verbaliser import verbaliser, prop_intent
 from enum import IntEnum
 from reggol import get_logger
 logger = get_logger(__name__)
@@ -15,10 +17,12 @@ ROS_AVAILABLE = True
 try:
     import rospy
     import actionlib
+    import ravestate_ros1 as ros1
     from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
     from roboy_cognition_msgs.srv import Payment
+    from std_msgs.msg import Bool
 except ImportError:
-    logger.error("Could not import ROS dependencies. Please make sure to have ROS installed.")
+    logger.error("Could not import ROS1 dependencies. Please make sure to have ROS1 installed.")
     ROS_AVAILABLE = False
 
 FLAVORS = {"chocolate", "vanilla"}
@@ -42,24 +46,79 @@ class ScoopingFeedbackMessages(IntEnum):
     NONE = -1
     TIME = -2
 
+
 with rs.Module(name="Luigi"):
+
+    # -------------------- properties -------------------- #
+
+    prop_flavors = rs.Property(name="flavor", always_signal_changed=False, default_value=[], allow_read=True,
+                               allow_write=True)
+    prop_scoops = rs.Property(name="scoops", always_signal_changed=False, default_value=[], allow_read=True,
+                              allow_write=True)
+    prop_flavor_scoop_tuple_list = rs.Property(name="flavor_scoop_tuple_list", default_value=[], allow_write=True,
+                                               allow_read=True, always_signal_changed=False)
+    prop_suggested_ice_cream = rs.Property(name="suggested_ice_cream", always_signal_changed=False, default_value=False,
+                                           allow_read=True, allow_write=True)
+    prop_price = rs.Property(name="price", always_signal_changed=False, default_value=-1, allow_read=True,
+                             allow_write=True)
+    prop_payment_option = rs.Property(name="payment_method", always_signal_changed=False, default_value=-1,
+                                      allow_read=True, allow_write=True)
+    prop_payment_success = rs.Property(name="payment_success", always_signal_changed=False, default_value=False,
+                                       allow_read=True, allow_write=True)
+    prop_asked_order_count = rs.Property(name="asked_order_count", always_signal_changed=False, default_value=1,
+                                         allow_read=True, allow_write=True)
+    prop_asked_payment_count = rs.Property(name="asked_payment_count", always_signal_changed=False, default_value=1,
+                                           allow_read=True, allow_write=True)
+
+    # -------------------- signals -------------------- #
+
+    sig_finish_order_question = rs.Signal("finish_order_question")
+    sig_start_payment = rs.Signal("start_payment")
+    sig_finished_payment = rs.Signal("finished_payment")
+    sig_payment_incomplete = rs.Signal("payment_incomplete")
+    sig_yesno_detected = rs.Signal("yesno")
+    sig_changed_flavor_or_scoops = rs.Signal("changed_flavor_or_scoops")
+    sig_changed_payment_option = rs.Signal("changed_payment_option")
+    sig_has_arrived = rs.Signal("has_arrived")  # TODO ad team should send this once Roboy has arrived
+    sig_ice_cream_desire = rs.Signal("ice_cream_desire")
+    sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
+    sig_insert_coins_or_scan_qr = rs.Signal("insert_coins_or_scan_qr")
+    sig_ask_again_order = rs.Signal("ask_again_order")
+    sig_asked_payment_method = rs.Signal("asked_payment_method")
+    sig_send_to_scooping = rs.Signal("send_to_scooping")
+    sig_loop_feedback = rs.Signal("loop_feedback")
+    sig_wait_for_cup = rs.Signal("wait_for_cup")
+    sig_wait_for_telegram_customer_to_come_close = rs.Signal("wait_for_telegram_customer_to_come_close")
 
     # ----------- ROS client and methods ---------------- #
 
     if ROS_AVAILABLE:
-        rospy.init_node('scooping_client_py')
         client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
-        client.wait_for_server()
+
+        has_arrived = ros1.Ros1SubProperty(
+            name="has_arrived",
+            topic="/roboy/autonomousdriving/arrival",
+            msg_type=Bool,
+            always_signal_changed=True)
+
+        @rs.state(
+            cond=has_arrived.changed(),
+            read=has_arrived,
+            write=rawio.prop_out,
+            signal=sig_wait_for_telegram_customer_to_come_close,
+            emit_detached=True)
+        def arrived_at_location(ctx: rs.ContextWrapper):
+            if ctx[has_arrived]:
+                ctx[rawio.prop_out] = verbaliser.get_random_phrase("telegram_arrival")
+                return rs.Emit(wipe=True)
 
     class ScoopingCommunication:
         def __init__(self):
-            # self.feedback = ScoopingFeedbackMessages.NONE
             self.feedback = None
             self.last_scooping_feedback_array = None
             self.stop_feedback = False
 
         def send_order(self, flavor_scoop_tuple_list):
-            # self.feedback = ScoopingFeedbackMessages.NONE
             self.feedback = None
             self.stop_feedback = False
             self.last_scooping_feedback_array = None
@@ -92,46 +151,6 @@ with rs.Module(name="Luigi"):
         else:
             return 242, ""
 
-
-    # -------------------- properties -------------------- #
-
-    prop_flavors = rs.Property(name="flavor", always_signal_changed=False, default_value=[], allow_read=True,
-                               allow_write=True)
-    prop_scoops = rs.Property(name="scoops", always_signal_changed=False, default_value=[], allow_read=True,
-                              allow_write=True)
-    prop_flavor_scoop_tuple_list = rs.Property(name="flavor_scoop_tuple_list", default_value=[], allow_write=True,
-                                               allow_read=True, always_signal_changed=False)
-    prop_suggested_ice_cream = rs.Property(name="suggested_ice_cream", always_signal_changed=False, default_value=False,
-                                           allow_read=True, allow_write=True)
-    prop_price = rs.Property(name="price", always_signal_changed=False, default_value=-1, allow_read=True,
-                             allow_write=True)
-    prop_payment_option = rs.Property(name="payment_method", always_signal_changed=False, default_value=-1,
-                                      allow_read=True, allow_write=True)
-    prop_payment_success = rs.Property(name="payment_success", always_signal_changed=False, default_value=False,
-                                       allow_read=True, allow_write=True)
-    prop_asked_order_count = rs.Property(name="asked_order_count", always_signal_changed=False, default_value=1,
-                                         allow_read=True, allow_write=True)
-    prop_asked_payment_count = rs.Property(name="asked_payment_count", always_signal_changed=False, default_value=1,
-                                           allow_read=True, allow_write=True)
-
-    # -------------------- signals -------------------- #
-
-    sig_start_order_question = rs.Signal("start_order_question")
-    sig_finish_order_question = rs.Signal("finish_order_question")
-    sig_start_payment = rs.Signal("start_payment")
-    sig_finished_payment = rs.Signal("finished_payment")
-    sig_payment_incomplete = rs.Signal("payment_incomplete")
-    sig_yesno_detected = rs.Signal("yesno")
-    sig_changed_flavor_or_scoops = rs.Signal("changed_flavor_or_scoops")
-    sig_changed_payment_option = rs.Signal("changed_payment_option")
-    sig_has_arrived = rs.Signal("has_arrived")  # TODO ad team should send this once Roboy has arrived
-    sig_ice_cream_desire = rs.Signal("ice_cream_desire")
-    sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
-    sig_insert_coins_or_scan_qr = rs.Signal("insert_coins_or_scan_qr")
-    sig_ask_again_order = rs.Signal("ask_again_order")
-    sig_asked_payment_method = rs.Signal("asked_payment_method")
-    sig_send_to_scooping = rs.Signal("send_to_scooping")
-    sig_loop_feedback = rs.Signal("loop_feedback")
 
     # -------------------- states: detection -------------------- #
 
@@ -285,18 +304,17 @@ with rs.Module(name="Luigi"):
         read=nlp.prop_yesno,
         signal=sig_yesno_detected)
     def yesno_detection(ctx: rs.ContextWrapper):
-        yesno = ctx[nlp.prop_yesno]
-        if yesno == "yes" or yesno == "no":
+        if ctx[nlp.prop_yesno].yes() or ctx[nlp.prop_yesno].no():
             return rs.Emit(wipe=True)
 
     # -------------------- states: conversation flow -------------------- #
 
     @rs.state(
-        cond=sig_has_arrived,
+        cond=sig_wait_for_telegram_customer_to_come_close,
         write=rawio.prop_out)
-    def arrived_at_location(ctx: rs.ContextWrapper):
-        # TODO implement connection to AD
-        ctx[rawio.prop_out] = "hey you, nice to see you in person. now it's ice cream time!"
+    def wait_for_telegram_customer(ctx: rs.ContextWrapper):
+        time.sleep(0)   # TODO adjust to how much time Roboy should give a Telegram customer to come up
+        ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("greet_general")
 
     @rs.state(
         cond=interloc.prop_all.pushed().detached().min_age(2)
@@ -316,16 +334,13 @@ with rs.Module(name="Luigi"):
     @rs.state(
         cond=sig_suggested_ice_cream.max_age(20).min_age(-1) & sig_yesno_detected | sig_changed_flavor_or_scoops,
         read=(nlp.prop_yesno, prop_flavors, prop_scoops),
-        write=rawio.prop_out,
-        signal=sig_start_order_question,
-        emit_detached=True)
+        write=rawio.prop_out)
     def analyse_ice_cream_suggestion_answer(ctx: rs.ContextWrapper):
         if ctx[prop_scoops] or ctx[prop_flavors]:
             return rs.Resign()
-        elif ctx[nlp.prop_yesno] == "yes":
+        elif ctx[nlp.prop_yesno].yes():
             ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("greet_general")
-            return rs.Emit(wipe=True)
-        elif ctx[nlp.prop_yesno] == "no":
+        elif ctx[nlp.prop_yesno].no():
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("greet_general")
 
     @rs.state(
@@ -396,22 +411,31 @@ with rs.Module(name="Luigi"):
         cond=sig_finish_order_question.max_age(15).min_age(-1) & sig_yesno_detected,
         read=(prop_flavor_scoop_tuple_list, nlp.prop_yesno),
         write=(rawio.prop_out, prop_price),
-        signal=sig_send_to_scooping,
+        signal=sig_wait_for_cup,
         emit_detached=True)
     def analyse_finish_order_answer(ctx: rs.ContextWrapper):
-        if ctx[nlp.prop_yesno] == "yes":
+        if ctx[nlp.prop_yesno].yes():
             flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
             complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("preparing_order").format(order=complete_order)
             ctx[prop_price] = complete_cost * 100  # price is in cents
             return rs.Emit(wipe=True)
-        elif ctx[nlp.prop_yesno] == "no":
+        elif ctx[nlp.prop_yesno].no():
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("continue_order")
+
+    @rs.state(
+        cond=sig_wait_for_cup,
+        signal=sig_send_to_scooping)
+    def while_customer_places_cup(ctx: rs.ContextWrapper):
+        time.sleep(0)   # TODO adjust however long a customer should have to place the cup
+        return rs.Emit()
 
     @rs.state(
         cond=sig_send_to_scooping.detached(),
         read=prop_flavor_scoop_tuple_list)
     def send_order_to_scooping(ctx: rs.ContextWrapper):
+        if ROS_AVAILABLE:
+            client.wait_for_server()
         scooping_communication.send_order(ctx[prop_flavor_scoop_tuple_list])
 
     @rs.state(
@@ -420,10 +444,10 @@ with rs.Module(name="Luigi"):
         signal=sig_loop_feedback,
         emit_detached=True)
     def feedback_state(ctx: rs.ContextWrapper):
-        if (ROS_AVAILABLE and client.get_result() is not None) \
+        if ROS_AVAILABLE and (client.get_result() is not None) \
                 or (not ROS_AVAILABLE and scooping_communication.stop_feedback):
-            return rs.Resign()
-        if scooping_communication.feedback is not None:
+            return rs.Emit(wipe=True)
+        if ROS_AVAILABLE and scooping_communication.feedback is not None:
             finished_scoops, status_message = scooping_communication.feedback
             if not scooping_communication.last_scooping_feedback_array == finished_scoops:
                 scooping_communication.last_scooping_feedback_array = finished_scoops

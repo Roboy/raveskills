@@ -11,12 +11,12 @@ opts:
 type: phrases
 name: "preparing_order"
 opts:
-- "alright, {order} coming right up!"
-- "{order} is being prepared!"
-- "deployment of {order} is confirmed. please stand by."
-- "i am preparing {order} then"
-- "{order} on the way. buckle up!"
-- "{order} is coming from coolest robot. please wait."
+- "alright, {order} coming right up! please put a cup on the marking"
+- "{order} is being prepared! please place a cup on the marked spot"
+- "deployment of {order} is confirmed. you first have to put a cup on the marking though"
+- "i am preparing {order} then. it would be helpful if you placed a cup on the marking"
+- "{order} on the way. buckle up and place a cup on the marked spot please"
+- "{order} is coming from the coolest robot. please put a cup in front of me on the marked spot"
 ---
 type: phrases
 name: "need_flavor"

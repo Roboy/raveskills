@@ -16,7 +16,7 @@ A:                                          # answers
   - "that's the spirit! now please tell me what you want"
   - "you have chosen ... wisely. please tell me your order"
   - "finally, time to serve some ice cream! what can i get you?"
-  - "yes, yes yes! What kind of ice cream do you want?"
+  - "yes, yes yes! what kind of ice cream do you want?"
   - "finally i have a purpose, thank you! what can i get for you?"
   FAILURE:
   - "that's a shame! you can ask me again if you want some."
