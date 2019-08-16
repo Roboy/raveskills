@@ -135,7 +135,7 @@ def test_legit_order():
     while not raw_out.wait(.1):
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
-    assert last_output.replace("3 scoops of vanilla", "{order}") in verbaliser.get_phrase_list("legit_order")
+    assert last_output.replace("3 scoops of vanillla", "{order}") in verbaliser.get_phrase_list("legit_order")
 
     say("yes")
 
@@ -144,7 +144,7 @@ def test_legit_order():
         ctx.run_once()
 
     assert luigi.analyse_finish_order_answer.wait()
-    assert last_output.replace("3 scoops of vanilla", "{order}") in verbaliser.get_phrase_list("preparing_order")
+    assert last_output.replace("3 scoops of vanillla", "{order}") in verbaliser.get_phrase_list("preparing_order")
 
     ctx.emit(rs.sig_shutdown)
     ctx.run_once()
@@ -292,7 +292,7 @@ def test_need_scoop():
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
     assert luigi.check_scoops_flavor_combined.wait()
-    assert last_output.replace("vanilla", "{flavor}") in verbaliser.get_phrase_list("need_scoop")
+    assert last_output.replace("vanillla", "{flavor}") in verbaliser.get_phrase_list("need_scoop")
 
     # Give scoop count
 
@@ -303,7 +303,7 @@ def test_need_scoop():
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
     assert luigi.check_scoops_flavor_combined.wait()
-    assert last_output.replace("3 scoops of vanilla", "{order}") in \
+    assert last_output.replace("3 scoops of vanillla", "{order}") in \
            verbaliser.get_phrase_list("legit_order")
 
     # Order is finished
@@ -394,7 +394,7 @@ def test_need_flavor():
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
     assert luigi.check_scoops_flavor_combined.wait()
-    assert last_output.replace("4 scoops of chocolate", "{order}") in \
+    assert last_output.replace("4 scoops of choclate", "{order}") in \
            verbaliser.get_phrase_list("legit_order")
 
     # Order is finished
@@ -467,7 +467,7 @@ def test_legit_order_need_flavor():
 
     assert luigi.detect_flavors_and_scoops.wait()
     assert luigi.check_scoops_flavor_combined.wait()
-    assert last_output.replace("2 scoops of chocolate", "{order}") in verbaliser.get_phrase_list("legit_order")
+    assert last_output.replace("2 scoops of choclate", "{order}") in verbaliser.get_phrase_list("legit_order")
 
     say("no")
 
@@ -495,7 +495,7 @@ def test_legit_order_need_flavor():
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
     assert luigi.check_scoops_flavor_combined.wait()
-    assert last_output.replace("1 scoop of vanilla and 2 scoops of chocolate", "{order}") in \
+    assert last_output.replace("1 scoop of vanillla and 2 scoops of choclate", "{order}") in \
            verbaliser.get_phrase_list("legit_order")
 
     # Order is finished

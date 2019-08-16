@@ -1,0 +1,20 @@
+type: phrases
+name: "luigi_farewell"
+opts:
+- "please pick up your ice cream - enjoy and come back anytime you like!"
+- "thanks for buying ice cream - please pick it up and enjoy!"
+- "don't forget to take your ice cream with you! hope to see you again!"
+- "please pick up your ice cream, i hope you are satisfied with this experience!"
+- "you can pick up your ice cream now. thanks for dropping by and remember there is always time for ice cream!"
+- "thanks for picking up your ice cream! what a journey it was!"
+- "don't forget to take your ice cream with you. see you soon!"
+---
+type: phrases
+name: "telegram_arrival"
+opts:
+- "who here wanted ice cream?"
+- "so who here had been so brave to call me via telegram?"
+- "well well well no who talked to me over telegram?"
+- "whoever told me to drive here via telegram, please come up to the front"
+- "who had dared to call me via telegram so i could serve delicious ice cream?"
+- "whoever requested my presence on telegram, please come closer to start ordering"

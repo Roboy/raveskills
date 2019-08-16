@@ -1,12 +1,22 @@
 type: phrases
+name: "continue_order"
+opts:
+- "wow, you are quite hungry. then tell me what other ice cream you want!"
+- "it is never enough! tell me what other ice cream you want."
+- "that's the spirit! what more do you want?"
+- "this is great! tell me, what do you want?"
+- "now we are talking! what more do you want?"
+- "good choice! what do you want?"
+---
+type: phrases
 name: "legit_order"
 opts:
 - "{order} will be delicious! is that all?"
 - "{order} then! are we done?"
 - "{order} sound delicious. are we good to go?"
-- "{order} coming right up! is that all?"
-- "i am going to prepare {order} now. is that all?"
-- "{order} is going to be prepared. is that all?"
+- "{order} coming right up! is that all for you?"
+- "i am going to prepare {order} now. is that everything?"
+- "{order} is going to be prepared. is that it?"
 ---
 type: phrases
 name: "preparing_order"

@@ -370,7 +370,8 @@ with rs.Module(name="Luigi"):
             ctx[prop_flavor_scoop_tuple_list] = current_order
             ctx[prop_flavors] = prop_flavors.read()[len(prop_scoops.read()):]
             ctx[prop_scoops] = []
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_scoop").format(flavor=prop_flavors.read()[0])
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("need_scoop") \
+                .format(flavor=fix_pronunciation(prop_flavors.read()[0]))
             return rs.Emit(wipe=True)
         elif len(prop_flavors.read()) < len(prop_scoops.read()):
             current_order = [(prop_flavors.read()[i], prop_scoops.read()[i]) for i in
@@ -593,35 +594,45 @@ with rs.Module(name="Luigi"):
 
 # -------------------- functions outside module -------------------- #
 
+def fix_pronunciation(flavor):
+    if flavor == "vanilla":
+        return "vanillla"
+    if flavor == "chocolate":
+        return "choclate"
+    if flavor == "strawberry":
+        return "strawbaary"
+
 
 def get_complete_order_and_cost(flavor_scoop_tuple_list):
     order = ""
     cost = 0
     if len(flavor_scoop_tuple_list) == 1:
         if flavor_scoop_tuple_list[0][1] == 1:
-            order += "{scoops} scoop of {flavor}".format(flavor=flavor_scoop_tuple_list[0][0],
+            order += "{scoops} scoop of {flavor}".format(flavor=fix_pronunciation(flavor_scoop_tuple_list[0][0]),
                                                          scoops=flavor_scoop_tuple_list[0][1])
         else:
-            order += "{scoops} scoops of {flavor}".format(flavor=flavor_scoop_tuple_list[0][0],
+            order += "{scoops} scoops of {flavor}".format(flavor=fix_pronunciation(flavor_scoop_tuple_list[0][0]),
                                                           scoops=flavor_scoop_tuple_list[0][1])
         cost = cost_per_scoop * flavor_scoop_tuple_list[0][1]
     else:
         order_length = len(flavor_scoop_tuple_list)
         for i in range(0, order_length - 1):
             if flavor_scoop_tuple_list[i][1] == 1:
-                order += "{scoops} scoop of {flavor}, ".format(flavor=flavor_scoop_tuple_list[i][0],
+                order += "{scoops} scoop of {flavor}, ".format(flavor=fix_pronunciation(flavor_scoop_tuple_list[i][0]),
                                                                scoops=flavor_scoop_tuple_list[i][1])
             else:
-                order += "{scoops} scoops of {flavor}, ".format(flavor=flavor_scoop_tuple_list[i][0],
+                order += "{scoops} scoops of {flavor}, ".format(flavor=fix_pronunciation(flavor_scoop_tuple_list[i][0]),
                                                                 scoops=flavor_scoop_tuple_list[i][1])
             cost += cost_per_scoop * flavor_scoop_tuple_list[i][1]
         order = order[:len(order) - 2]
         if flavor_scoop_tuple_list[order_length - 1][1] == 1:
-            order += " and {scoops} scoop of {flavor}".format(flavor=flavor_scoop_tuple_list[order_length - 1][0],
-                                                              scoops=flavor_scoop_tuple_list[order_length - 1][1])
+            order += " and {scoops} scoop of {flavor}" \
+                .format(flavor=fix_pronunciation(flavor_scoop_tuple_list[order_length - 1][0]),
+                        scoops=flavor_scoop_tuple_list[order_length - 1][1])
         else:
-            order += " and {scoops} scoops of {flavor}".format(flavor=flavor_scoop_tuple_list[order_length - 1][0],
-                                                               scoops=flavor_scoop_tuple_list[order_length - 1][1])
+            order += " and {scoops} scoops of {flavor}" \
+                .format(flavor=fix_pronunciation(flavor_scoop_tuple_list[order_length - 1][0]),
+                        scoops=flavor_scoop_tuple_list[order_length - 1][1])
         cost += cost_per_scoop * flavor_scoop_tuple_list[order_length - 1][1]
     return order, cost
 

@@ -1,4 +1,14 @@
 type: phrases
+name: "payment"
+opts:
+- "payment time! you owe me {cost} euros for the {order}. how do you want to pay?"
+- "that will be {cost} euros for the {order}. what payment method do you prefer?"
+- "do you want some ketchup with that? just kidding, {cost} euros for the {order}. how do you want to pay?"
+- "all set! i get {cost} euros for the {order}. what payment method do you want to use?"
+- "that will be {cost} euros for the {order}. how do you want to pay?"
+- "for the {order} i will need {cost} euros. no money no ice cream! how do you want to pay?"
+---
+type: phrases
 name: "paypal_option"
 opts:
 - "please follow the instructions on the screen below to complete your paypal payment"
@@ -13,7 +23,6 @@ opts:
 - "fill me with coins then! remember i don't give any change"
 - "old school. give me your coins but i don't give any change remember that"
 - "internet is not safe anyway. just insert your coins into slid. "
-
 ---
 type: phrases
 name: "no_payment"
@@ -56,11 +65,9 @@ opts:
 - "today is your lucky day, our payment is not working and you get your ice cream for free!"
 ---
 type: phrases
-name: "telegram_arrival"
+name: "unexpected"
 opts:
-- "who here wanted ice cream?"
-- "so who here had been so brave to call me via telegram?"
-- "well well well no who talked to me over telegram?"
-- "whoever told me to drive here via telegram, please come up to the front"
-- "who had dared to call me via telegram so i could serve delicious ice cream?"
-- "whoever requested my presence on telegram, please come closer to start ordering"
+- "ooops something went wrong"
+- "for some reason this didn't work out..."
+- "unfortunately there was a problem"
+- "something unexpected happened"
