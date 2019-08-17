@@ -19,6 +19,7 @@ PLACES = {"mensa", "mi", "mw", "ubahn"}
 PROXIMITY_SYNONYMS = {"near", "close", "at", "right", "by", "in"}
 
 eta = ""
+path_found = False
 ws = 'ws://localhost:8765'  # TODO change to cloud address
 
 with rs.Module(name="Luigi"):
@@ -178,6 +179,11 @@ async def say(server, location):
 
 async def listen(server):
     global eta
+    global path_found
     async with websockets.connect(server+'/sub') as websocket:
         eta_encoding = await websocket.recv()
+        path_found_encoding = await websocket.recv()
         eta = pickle.loads(eta_encoding, encoding='bytes')
+        print("ETA: ", eta)
+        path_found = pickle.loads(path_found_encoding, encoding='bytes')
+        print("PATH: ", path_found)

@@ -4,7 +4,7 @@ import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
 import os
-import actionlib
+# import actionlib
 #from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
 #from roboy_cognition_msgs.srv import Payment
 from enum import IntEnum
@@ -250,25 +250,6 @@ with rs.Module(name="Luigi"):
             return rs.Emit()
 
     # -------------------- states: conversation flow -------------------- #
-
-    # @rs.state(
-    #     cond=interloc.prop_all.pushed().detached().min_age(2) | idle.sig_bored.min_age(1),
-    #     signal=sig_send_eta,
-    #     emit_detached=True)
-    # def get_loc_send_eta(ctx: rs.ContextWrapper):
-    #     communication_with_cloud(server)
-    #     return rs.Emit()
-    #
-    #
-    # @rs.state(
-    #     cond=sig_send_eta,
-    #     signal=sig_has_arrived,
-    #     emit_detached=True)
-    # def arrived_at_location(ctx: rs.ContextWrapper):
-    #     has_arrived = True #TODO change this with has_arrived from ros
-    #     if has_arrived:
-    #         return rs.Emit()
-
 
     @rs.state(
         cond=sig_has_arrived.max_age(-1),
