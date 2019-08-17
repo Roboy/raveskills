@@ -1,21 +1,14 @@
-#!/usr/bin/env python
 import ravestate as rs
 import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
+import asyncio
+import websockets
+import pickle
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
-import asyncio
-import websockets
-import ssl
-import rospy
-import pickle
-import numpy as np
-
-from ecdsa import VerifyingKey
-import hashlib
 
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
 NEGATION_SYNONYMS = {"no", "not"}
@@ -25,8 +18,8 @@ ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
 PLACES = {"mensa", "mi", "mw", "ubahn"}
 PROXIMITY_SYNONYMS = {"near", "close", "at", "right", "by", "in"}
 
-eta = "" #TODO change global
-server = 'ws://localhost:8765' #TODO change to cloud
+eta = ""
+ws = 'ws://localhost:8765'  # TODO change to cloud address
 
 with rs.Module(name="Luigi"):
 
@@ -79,7 +72,6 @@ with rs.Module(name="Luigi"):
                 not NEGATION_SYNONYMS & set(lemmas):
             # for expressing locations with just single words such as "mensa" or "mi building"
             ctx[prop_location] = extract_location(tokens)
-            #ctx[prop_location] = communication_with_cloud(get_loc = True)
         elif triples[0].match_either_lemma(subj={"i"}) and \
                 triples[0].match_either_lemma(pred={"be"}) and \
                 triples[0].match_either_lemma(obj=PLACES) and \
@@ -88,7 +80,6 @@ with rs.Module(name="Luigi"):
             # "i am in front of the mensa"
             # "i am near the mi"
             ctx[prop_location] = extract_location(tokens)
-            #ctx[prop_location] = communication_with_cloud(get_loc = True )
         elif triples[0].match_either_lemma(pred=PROXIMITY_SYNONYMS) and \
                 triples[0].match_either_lemma(obj=PLACES) and \
                 not NEGATION_SYNONYMS & set(lemmas):
@@ -96,7 +87,6 @@ with rs.Module(name="Luigi"):
             # "right by the mensa"
             # "at the mi"
             ctx[prop_location] = extract_location(tokens)
-            #ctx[prop_location] = communication_with_cloud(get_loc = True)
         elif triples[0].match_either_lemma(pred={"meet", "let"}) and \
                 triples[0].match_either_lemma(obj=PLACES) and \
                 not NEGATION_SYNONYMS & set(lemmas):
@@ -104,7 +94,6 @@ with rs.Module(name="Luigi"):
             # "let's meet at the ubahn"
             # "meet me at the mw"
             ctx[prop_location] = extract_location(tokens)
-            #ctx[prop_location] = communication_with_cloud(get_loc = True)
 
     @rs.state(
         read=nlp.prop_yesno,
@@ -155,16 +144,16 @@ with rs.Module(name="Luigi"):
     def known_location(ctx: rs.ContextWrapper):
         global eta
         location = ctx[prop_location]
-        print("known_location: " + location)
-        communication_with_cloud(server, location)
         if location == "unknown":
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("location_qa")
         else:
+            communication_with_cloud(ws, location)
             if eta is not "":
                 ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location_qa") \
                     .format(location=location, min=eta)
 
 # -------------------- functions outside module -------------------- #
+
 
 def extract_location(prop_tokens):
     for token in prop_tokens:
@@ -173,13 +162,11 @@ def extract_location(prop_tokens):
     return "unknown"
 
 
-def communication_with_cloud(server, location = "unknown"):
+def communication_with_cloud(server, location="unknown"):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    asyncio.get_event_loop().run_until_complete(say(server,location))
-    #print("Sending is finished")
+    asyncio.get_event_loop().run_until_complete(say(server, location))
     asyncio.get_event_loop().run_until_complete(listen(server))
-    #print("Listening is finished")
     loop.close()
 
 
@@ -188,16 +175,9 @@ async def say(server, location):
         location_encoding = pickle.dumps(location)
         await websocket.send(location_encoding)
 
+
 async def listen(server):
     global eta
     async with websockets.connect(server+'/sub') as websocket:
         eta_encoding = await websocket.recv()
-        eta = pickle.loads(eta_encoding, encoding='bytes')  # .decode()
-
-
-
-
-
-
-
-
+        eta = pickle.loads(eta_encoding, encoding='bytes')

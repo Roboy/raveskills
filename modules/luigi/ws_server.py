@@ -4,6 +4,7 @@ import websockets
 connections = set()
 n = 0
 
+
 async def handler(websocket, path):
     global n
 
@@ -13,8 +14,8 @@ async def handler(websocket, path):
         connections.add(websocket)
         print("adding subscriber #", i)
         try:
-            async for msg in websocket:
-                pass  # ignore
+            async for _ in websocket:
+                pass
         except websockets.ConnectionClosed:
             pass
         finally:
@@ -29,6 +30,5 @@ async def handler(websocket, path):
 
 
 start_server = websockets.serve(handler, 'localhost', 8765)
-
 asyncio.get_event_loop().run_until_complete(start_server)
 asyncio.get_event_loop().run_forever()
