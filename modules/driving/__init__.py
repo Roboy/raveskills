@@ -3,8 +3,9 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
-import rospy
-from roboy_cognition_msgs.srv import DriveToLocation
+import asyncio
+import websockets
+import pickle
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
@@ -17,6 +18,9 @@ ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
 PLACES = {"mensa", "mi", "mw", "ubahn"}
 PROXIMITY_SYNONYMS = {"near", "close", "at", "right", "by", "in"}
 
+eta = ""
+path_found = False
+ws = 'ws://localhost:8765'  # TODO change to cloud address
 
 with rs.Module(name="Luigi"):
 
@@ -139,17 +143,18 @@ with rs.Module(name="Luigi"):
         read=prop_location,
         write=rawio.prop_out)
     def known_location(ctx: rs.ContextWrapper):
+        global eta
         location = ctx[prop_location]
         if location == "unknown":
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("location_qa")
         else:
-            eta, error_msg = ad_communication(location)
-            if error_msg is not "":
+            communication_with_cloud(ws, location)
+            if eta is not "":
                 ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location_qa") \
                     .format(location=location, min=eta)
 
-
 # -------------------- functions outside module -------------------- #
+
 
 def extract_location(prop_tokens):
     for token in prop_tokens:
@@ -158,13 +163,27 @@ def extract_location(prop_tokens):
     return "unknown"
 
 
-def ad_communication(location):
-    rospy.wait_for_service('autonomous_driving')
-    try:
-        drive_to_location = rospy.ServiceProxy('autonomous_driving', DriveToLocation)
-        response = drive_to_location(location)
-        return response.eta, response.error_message
-    except rospy.ROSInterruptException as e:
-        print('Service call failed:', e)
-    # If driving module is run without ROS, comment everything from above (including imports) and uncomment this:
-    # return 42, ""
+def communication_with_cloud(server, location="unknown"):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    asyncio.get_event_loop().run_until_complete(say(server, location))
+    asyncio.get_event_loop().run_until_complete(listen(server))
+    loop.close()
+
+
+async def say(server, location):
+    async with websockets.connect(server+'/pub') as websocket:
+        location_encoding = pickle.dumps(location)
+        await websocket.send(location_encoding)
+
+
+async def listen(server):
+    global eta
+    global path_found
+    async with websockets.connect(server+'/sub') as websocket:
+        eta_encoding = await websocket.recv()
+        path_found_encoding = await websocket.recv()
+        eta = pickle.loads(eta_encoding, encoding='bytes')
+        print("ETA: ", eta)
+        path_found = pickle.loads(path_found_encoding, encoding='bytes')
+        print("PATH: ", path_found)

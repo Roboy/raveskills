@@ -3,16 +3,17 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
-# import rospy
+import os
 # import actionlib
-# from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
-# from roboy_cognition_msgs.srv import Payment
+#from roboy_cognition_msgs.msg import OrderIceCreamAction, OrderIceCreamGoal
+#from roboy_cognition_msgs.srv import Payment
 from enum import IntEnum
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
 
 cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
+
 
 FLAVORS = {"chocolate", "vanilla"}
 FLAVOR_SYNONYMS = {"flavor", "kind"}
@@ -68,6 +69,7 @@ with rs.Module(name="Luigi"):
     sig_ice_cream_desire = rs.Signal("ice_cream_desire")
     sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
     sig_insert_coins = rs.Signal("insert_coins")
+    sig_send_eta = rs.Signal("send_eta")
 
     # -------------------- states: detection -------------------- #
 
@@ -288,12 +290,6 @@ with rs.Module(name="Luigi"):
 
 
     @rs.state(
-        cond=sig_has_arrived,
-        write=rawio.prop_out)
-    def arrived_at_location(ctx: rs.ContextWrapper):
-            ctx[rawio.prop_out] = "hey you, nice to see you in person. now it's ice cream time!"
-
-    @rs.state(
         cond=sig_changed_flavor_or_scoops,
         signal=sig_finish_order_question,
         emit_detached=True,
@@ -359,13 +355,13 @@ with rs.Module(name="Luigi"):
         complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
         flavors = [x for x, _ in flavor_scoop_tuple_list]
         scoops = [y for _, y in flavor_scoop_tuple_list]
-        goal = OrderIceCreamGoal()  # use the action client declared in the beginning of the module
-        goal.flavors = flavors
-        goal.scoops = scoops
-        client.send_goal(goal, feedback_cb=scooping_feedback_cb)
-        client.wait_for_result()
-        result = client.get_result()
-        if result.success:
+        # goal = OrderIceCreamGoal()  # use the action client declared in the beginning of the module
+        # goal.flavors = flavors
+        # goal.scoops = scoops
+        # client.send_goal(goal, feedback_cb=scooping_feedback_cb)
+        # client.wait_for_result()
+        # result = client.get_result()
+        if True: #result.success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
                 format(cost=complete_cost, order=complete_order)
         else:
@@ -378,15 +374,12 @@ with rs.Module(name="Luigi"):
         signal=sig_insert_coins,
         emit_detached=True)
     def start_payment(ctx: rs.ContextWrapper):
-        # TODO add verbalizer for both cases below
         payment_option = ctx[prop_payment_option]
         if payment_option == PaymentOptions.PAYPAL:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("paypal_option")
-            time.sleep(3)
             return rs.Emit()
         elif payment_option == PaymentOptions.COIN:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("coin_option")
-            time.sleep(3)
             return rs.Emit()
 
     @rs.state(
@@ -396,7 +389,6 @@ with rs.Module(name="Luigi"):
         signal=sig_finished_payment,
         emit_detached=True)
     def payment_process(ctx: rs.ContextWrapper):
-        # TODO add verbalizer for all cases below
         payment_option = ctx[prop_payment_option]
         price = ctx[prop_price]
         amount_paid, error_message = payment_communication(price, payment_option)
@@ -560,14 +552,15 @@ def scooping_feedback_cb(feedback):
 
 
 def payment_communication(price, payment_option):
-    rospy.wait_for_service('payment')
-    try:
-        payment = rospy.ServiceProxy('payment', Payment)
-        response = payment(np.uint16(price), np.uint8(payment_option))
-        return response.amount_paid, response.error_message
-    except rospy.ROSInterruptException as e:
-        print('Service call failed:', e)
+    # rospy.wait_for_service('payment')
+    # try:
+    #     payment = rospy.ServiceProxy('payment', Payment)
+    #     response = payment(np.uint16(price), np.uint8(payment_option))
+    #     return response.amount_paid, response.error_message
+    # except rospy.ROSInterruptException as e:
+    #     print('Service call failed:', e)
     # If luigi module is run without ROS, comment everything from above (including imports) and uncomment this:
     # print("in payment communication - price: {} option: {}".format(price, payment_option))
     # time.sleep(4)
-    # return 220, ""
+    return 220, ""
+
