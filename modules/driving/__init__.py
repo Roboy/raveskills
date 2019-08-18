@@ -233,6 +233,4 @@ async def listen(server):
         eta_encoding = await websocket.recv()
         path_found_encoding = await websocket.recv()
         eta = pickle.loads(eta_encoding, encoding='bytes')
-        print("ETA: ", eta)
         path_found = pickle.loads(path_found_encoding, encoding='bytes')
-        print("PATH: ", path_found)
