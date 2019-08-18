@@ -3,20 +3,12 @@ import ravestate_nlp as nlp
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
 import ravestate_idle as idle
+import asyncio
+import websockets
+import pickle
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
-from reggol import get_logger
-logger = get_logger(__name__)
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
-
-ROS_AVAILABLE = True
-try:
-    import rospy
-    from roboy_cognition_msgs.srv import DriveToLocation
-except ImportError:
-    logger.error("Could not import ROS dependencies. Please make sure to have ROS installed.")
-    ROS_AVAILABLE = False
-
 
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
 NEGATION_SYNONYMS = {"no", "not"}
@@ -26,6 +18,9 @@ ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
 PLACES = {"mensa", "mi", "mw", "ubahn"}
 PROXIMITY_SYNONYMS = {"near", "close", "at", "right", "by", "in"}
 
+eta = ""
+path_found = False
+ws = 'ws://localhost:8765'  # TODO change to cloud address
 
 with rs.Module(name="Luigi"):
 
@@ -137,8 +132,7 @@ with rs.Module(name="Luigi"):
         read=nlp.prop_yesno,
         signal=sig_yesno_detected)
     def yesno_detection(ctx: rs.ContextWrapper):
-        yesno = ctx[nlp.prop_yesno]
-        if yesno == "yes" or yesno == "no":
+        if ctx[nlp.prop_yesno].yes() or ctx[nlp.prop_yesno].no():
             return rs.Emit(wipe=True)
 
 
@@ -175,10 +169,10 @@ with rs.Module(name="Luigi"):
         signal=sig_location_question,
         emit_detached=True)
     def analyse_ice_cream_suggestion_answer(ctx: rs.ContextWrapper):
-        if ctx[nlp.prop_yesno] == "yes":
+        if ctx[nlp.prop_yesno].yes():
             ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("greet_general")
             return rs.Emit(wipe=True)
-        elif ctx[nlp.prop_yesno] == "no":
+        elif ctx[nlp.prop_yesno].no():
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("greet_general")
 
     @rs.state(
@@ -196,19 +190,20 @@ with rs.Module(name="Luigi"):
         write=(rawio.prop_out, prop_suggested_ice_cream))
     def known_location(ctx: rs.ContextWrapper):
         ctx[prop_suggested_ice_cream] = True
+        global eta
         location = ctx[prop_location]
         if location == "unknown":
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("location_qa")
         else:
-            eta, path_found, error_msg = ad_communication(location)
+            communication_with_cloud(ws, location)
             if path_found:
                 ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location_qa") \
                     .format(location=location, min=eta)
             else:
                 ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_path")
 
-
 # -------------------- functions outside module -------------------- #
+
 
 def extract_location(prop_tokens):
     for token in prop_tokens:
@@ -217,14 +212,27 @@ def extract_location(prop_tokens):
     return "unknown"
 
 
-def ad_communication(location):
-    if ROS_AVAILABLE:
-        rospy.wait_for_service('autonomous_driving')
-        try:
-            drive_to_location = rospy.ServiceProxy('autonomous_driving', DriveToLocation)
-            response = drive_to_location(location)
-            return response.eta, response.path_found, response.error_message
-        except rospy.ROSInterruptException as e:
-            logger.error('Service call failed:', e)
-    else:
-        return 42, True, ""
+def communication_with_cloud(server, location="unknown"):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    asyncio.get_event_loop().run_until_complete(say(server, location))
+    asyncio.get_event_loop().run_until_complete(listen(server))
+    loop.close()
+
+
+async def say(server, location):
+    async with websockets.connect(server+'/pub') as websocket:
+        location_encoding = pickle.dumps(location)
+        await websocket.send(location_encoding)
+
+
+async def listen(server):
+    global eta
+    global path_found
+    async with websockets.connect(server+'/sub') as websocket:
+        eta_encoding = await websocket.recv()
+        path_found_encoding = await websocket.recv()
+        eta = pickle.loads(eta_encoding, encoding='bytes')
+        print("ETA: ", eta)
+        path_found = pickle.loads(path_found_encoding, encoding='bytes')
+        print("PATH: ", path_found)
