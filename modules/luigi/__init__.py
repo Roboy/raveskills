@@ -252,7 +252,7 @@ with rs.Module(name="Luigi"):
     # -------------------- states: conversation flow -------------------- #
 
     @rs.state(
-        cond=sig_has_arrived.max_age(-1),
+        cond=interloc.prop_all.pushed().detached().min_age(2) | idle.sig_bored.min_age(1),
         read=prop_suggested_ice_cream,
         write=(rawio.prop_out, prop_suggested_ice_cream),
         signal=sig_suggested_ice_cream,
@@ -355,13 +355,13 @@ with rs.Module(name="Luigi"):
         complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
         flavors = [x for x, _ in flavor_scoop_tuple_list]
         scoops = [y for _, y in flavor_scoop_tuple_list]
-        goal = OrderIceCreamGoal()  # use the action client declared in the beginning of the module
-        goal.flavors = flavors
-        goal.scoops = scoops
-        client.send_goal(goal, feedback_cb=scooping_feedback_cb)
-        client.wait_for_result()
-        result = client.get_result()
-        if result.success:
+        # goal = OrderIceCreamGoal()  # use the action client declared in the beginning of the module
+        # goal.flavors = flavors
+        # goal.scoops = scoops
+        # client.send_goal(goal, feedback_cb=scooping_feedback_cb)
+        # client.wait_for_result()
+        # result = client.get_result()
+        if True: #result.success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("payment"). \
                 format(cost=complete_cost, order=complete_order)
         else:
@@ -377,11 +377,9 @@ with rs.Module(name="Luigi"):
         payment_option = ctx[prop_payment_option]
         if payment_option == PaymentOptions.PAYPAL:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("paypal_option")
-            time.sleep(3)
             return rs.Emit()
         elif payment_option == PaymentOptions.COIN:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("coin_option")
-            time.sleep(3)
             return rs.Emit()
 
     @rs.state(
@@ -554,15 +552,15 @@ def scooping_feedback_cb(feedback):
 
 
 def payment_communication(price, payment_option):
-    rospy.wait_for_service('payment')
-    try:
-        payment = rospy.ServiceProxy('payment', Payment)
-        response = payment(np.uint16(price), np.uint8(payment_option))
-        return response.amount_paid, response.error_message
-    except rospy.ROSInterruptException as e:
-        print('Service call failed:', e)
+    # rospy.wait_for_service('payment')
+    # try:
+    #     payment = rospy.ServiceProxy('payment', Payment)
+    #     response = payment(np.uint16(price), np.uint8(payment_option))
+    #     return response.amount_paid, response.error_message
+    # except rospy.ROSInterruptException as e:
+    #     print('Service call failed:', e)
     # If luigi module is run without ROS, comment everything from above (including imports) and uncomment this:
     # print("in payment communication - price: {} option: {}".format(price, payment_option))
     # time.sleep(4)
-    # return 220, ""
+    return 220, ""
 
