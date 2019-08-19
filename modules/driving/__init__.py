@@ -8,6 +8,8 @@ import websockets
 import pickle
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
+from luigi.ws_communication import current_location
+
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
 
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
@@ -30,6 +32,8 @@ with rs.Module(name="Luigi"):
                                            allow_read=True, allow_write=True)
     prop_location = rs.Property(name="location", always_signal_changed=False, default_value=[], allow_read=True,
                                 allow_write=True)
+    prop_busy = rs.Property(name="busy", always_signal_changed=False, default_value=False, allow_read=True,
+                                allow_write=True)
 
     # -------------------- signals -------------------- #
 
@@ -39,6 +43,7 @@ with rs.Module(name="Luigi"):
     sig_ice_cream_desire_and_location = rs.Signal("ice_cream_desire_and_location")
     sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
     sig_asked_for_location = rs.Signal("asked_for_location")
+    sig_decide_to_call_customer = rs.Signal("decide_to_call_customer")
 
     # -------------------- detection methods -------------------- #
 
@@ -155,7 +160,7 @@ with rs.Module(name="Luigi"):
         cond=sig_ice_cream_desire_and_not_location,
         read=prop_suggested_ice_cream,
         write=(rawio.prop_out, prop_suggested_ice_cream),
-        signal=sig_location_question,
+        signal=sig_decide_to_call_customer,
         emit_detached=True)
     def react_to_ice_cream_desire_and_no_location(ctx: rs.ContextWrapper):
         ctx[rawio.prop_out] = verbaliser.get_random_successful_answer('greet_general')
@@ -166,7 +171,7 @@ with rs.Module(name="Luigi"):
         cond=sig_suggested_ice_cream.max_age(-1) & sig_yesno_detected,
         read=nlp.prop_yesno,
         write=rawio.prop_out,
-        signal=sig_location_question,
+        signal=sig_decide_to_call_customer,
         emit_detached=True)
     def analyse_ice_cream_suggestion_answer(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno].yes():
@@ -174,6 +179,17 @@ with rs.Module(name="Luigi"):
             return rs.Emit(wipe=True)
         elif ctx[nlp.prop_yesno].no():
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("greet_general")
+
+    @rs.state(
+        cond=sig_decide_to_call_customer,
+        read=prop_busy,
+        write=rawio.prop_out,
+        signal=sig_location_question,)
+    def ask_location_if_not_busy(ctx: rs.ContextWrapper):
+        if ctx[prop_busy]:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("busy").replace('{current_location}', current_location)
+        else:
+            return rs.Emit(wipe=True)
 
     @rs.state(
         cond=sig_location_question.max_age(-1),
@@ -186,10 +202,13 @@ with rs.Module(name="Luigi"):
 
     @rs.state(
         cond=sig_ice_cream_desire_and_location,
-        read=prop_location,
+        read=(prop_location, prop_busy,),
         write=(rawio.prop_out, prop_suggested_ice_cream))
     def known_location(ctx: rs.ContextWrapper):
         ctx[prop_suggested_ice_cream] = True
+        if ctx[prop_busy]:
+            current_location = None
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("busy").replace('{current_location}', current_location)
         global eta
         location = ctx[prop_location]
         if location == "unknown":
