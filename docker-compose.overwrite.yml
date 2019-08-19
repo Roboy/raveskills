@@ -5,5 +5,5 @@ services:
     volumes:
       - ../raveskills:/raveskills
     environment:
-      - PYTHONPATH=$PYTHONPATH:/raveskills/modules
+      - PYTHONPATH=$PYTHONPATH:/raveskills/modules:/ravestate/modules
       - PYTHONUNBUFFERED=1
