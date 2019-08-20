@@ -139,7 +139,9 @@ with rs.Module(name="Luigi"):
     # -------------------- states: conversation flow -------------------- #
 
     @rs.state(
-        cond=interloc.prop_all.pushed().detached().min_age(2) | idle.sig_bored.min_age(1),
+        cond=interloc.prop_all.pushed().detached().min_age(2)
+             | idle.sig_bored.min_age(1)
+             | sig_suggested_ice_cream.min_age(12),
         read=prop_suggested_ice_cream,
         write=(rawio.prop_out, prop_suggested_ice_cream),
         signal=sig_suggested_ice_cream,
@@ -148,7 +150,6 @@ with rs.Module(name="Luigi"):
         has_already_asked = ctx[prop_suggested_ice_cream]
         if not has_already_asked:
             ctx[rawio.prop_out] = verbaliser.get_random_question('greet_general')
-            ctx[prop_suggested_ice_cream] = True
             return rs.Emit(wipe=True)
 
     @rs.state(
@@ -163,7 +164,7 @@ with rs.Module(name="Luigi"):
         return rs.Emit(wipe=True)
 
     @rs.state(
-        cond=sig_suggested_ice_cream.max_age(-1) & sig_yesno_detected,
+        cond=sig_suggested_ice_cream.max_age(12) & sig_yesno_detected,
         read=nlp.prop_yesno,
         write=rawio.prop_out,
         signal=sig_location_question,

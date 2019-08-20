@@ -145,7 +145,7 @@ with rs.Module(name="Luigi"):
             try:
                 payment = rospy.ServiceProxy('payment', Payment)
                 response = payment(np.uint16(price), np.uint8(payment_option), flavors, scoops)
-                return response.amount_paid, response.error_message
+                return response.amount_paid, response.error_message  # TODO response.customer_name can be used for stuff
             except rospy.ROSInterruptException as e:
                 logger.error('Service call failed:', e)
         else:
