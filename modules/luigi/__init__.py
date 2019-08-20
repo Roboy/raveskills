@@ -10,6 +10,7 @@ from os.path import realpath, dirname, join
 from ravestate_verbaliser import verbaliser, prop_intent
 from enum import IntEnum
 from reggol import get_logger
+
 logger = get_logger(__name__)
 verbaliser.add_folder(join(dirname(realpath(__file__)) + "/phrases"))
 
@@ -306,6 +307,15 @@ with rs.Module(name="Luigi"):
     def yesno_detection(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno].yes() or ctx[nlp.prop_yesno].no():
             return rs.Emit(wipe=True)
+
+    @rs.state(
+        cond=interloc.prop_all.pushed() | interloc.prop_all.popped(),
+        read=interloc.prop_all)
+    def is_busy(ctx: rs.ContextWrapper):
+        busy = True if any(ctx.enum(interloc.prop_all)) else False
+
+        # TODO Set this as param if you want to use inside ws_comm, o.w you can just assign a variable
+        rospy.param_set('roboy_is_busy', busy)
 
     # -------------------- states: conversation flow -------------------- #
 

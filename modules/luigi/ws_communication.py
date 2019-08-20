@@ -4,7 +4,7 @@ import asyncio
 import websockets
 import pickle
 
-current_location = ""
+destination_location = ""
 
 
 def ad_communication(location):
@@ -21,9 +21,9 @@ def communication_with_cloud(server):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     asyncio.get_event_loop().run_until_complete(listen(server))
-    print("Received location from Telegram: ", current_location)
+    print("Received location from Telegram: ", destination_location)
     print("Sending location via ROS to AD.")
-    eta, path_found, error_message = ad_communication(current_location)
+    eta, path_found, error_message = ad_communication(destination_location)
     print("Received path_found via ROS from AD: ", path_found)
     print("Received eta via ROS from AD: ", eta)
     print("Sending eta and path_found to Telegram.")
@@ -41,10 +41,10 @@ async def say(server, eta, path_found):
 
 
 async def listen(server):
-    global current_location
+    global destination_location
     async with websockets.connect(server+'/sub') as websocket:
         location_encoding = await websocket.recv()
-        current_location = pickle.loads(location_encoding, encoding='bytes')
+        destination_location = pickle.loads(location_encoding, encoding='bytes')
 
 
 if __name__ == "__main__":

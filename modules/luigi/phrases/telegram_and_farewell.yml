@@ -18,9 +18,3 @@ opts:
 - "whoever told me to drive here via telegram, please come up to the front"
 - "who had dared to call me via telegram so i could serve delicious ice cream?"
 - "whoever requested my presence on telegram, please come closer to start ordering"
----
-type: phrases
-name: "telegram_busy"
-opts:
-- "I am serving ice cream at {current_location} right now. Would you like to come over here?"
-- "Why don't you come to {current_location}? I am pretty busy here..."

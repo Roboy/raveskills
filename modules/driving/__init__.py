@@ -8,7 +8,6 @@ import websockets
 import pickle
 from ravestate_verbaliser import verbaliser
 from os.path import realpath, dirname, join
-from luigi.ws_communication import current_location
 
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
 
@@ -22,6 +21,8 @@ PROXIMITY_SYNONYMS = {"near", "close", "at", "right", "by", "in"}
 
 eta = ""
 path_found = False
+current_location = ""
+busy = ""
 ws = 'ws://localhost:8765'  # TODO change to cloud address
 
 with rs.Module(name="Luigi"):
@@ -31,8 +32,6 @@ with rs.Module(name="Luigi"):
     prop_suggested_ice_cream = rs.Property(name="suggested_ice_cream", always_signal_changed=False, default_value=False,
                                            allow_read=True, allow_write=True)
     prop_location = rs.Property(name="location", always_signal_changed=False, default_value=[], allow_read=True,
-                                allow_write=True)
-    prop_busy = rs.Property(name="busy", always_signal_changed=False, default_value=False, allow_read=True,
                                 allow_write=True)
 
     # -------------------- signals -------------------- #
@@ -183,11 +182,12 @@ with rs.Module(name="Luigi"):
 
     @rs.state(
         cond=sig_decide_to_call_customer,
-        read=prop_busy,
         write=rawio.prop_out,
-        signal=sig_location_question,)
+        signal=sig_location_question,
+        emit_detached=True)
     def ask_location_if_not_busy(ctx: rs.ContextWrapper):
-        if ctx[prop_busy]:
+        print('busy: ' + str(busy))
+        if busy:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("busy").replace('{current_location}', current_location)
         else:
             return rs.Emit(wipe=True)
@@ -203,12 +203,12 @@ with rs.Module(name="Luigi"):
 
     @rs.state(
         cond=sig_ice_cream_desire_and_location,
-        read=(prop_location, prop_busy,),
+        read=prop_location,
         write=(rawio.prop_out, prop_suggested_ice_cream))
     def known_location(ctx: rs.ContextWrapper):
         ctx[prop_suggested_ice_cream] = True
-        if ctx[prop_busy]:
-            current_location = None
+        print('busy: ' + str(busy))
+        if busy:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("busy").replace('{current_location}', current_location)
         global eta
         location = ctx[prop_location]
@@ -254,3 +254,6 @@ async def listen(server):
         path_found_encoding = await websocket.recv()
         eta = pickle.loads(eta_encoding, encoding='bytes')
         path_found = pickle.loads(path_found_encoding, encoding='bytes')
+
+# TODO: Define a new listen method for busy and current location variables.
+#  This time it will only listen to see if it changed.
