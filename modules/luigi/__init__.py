@@ -574,6 +574,7 @@ with rs.Module(name="Luigi"):
         payment_success = ctx[prop_payment_success]
         if payment_success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("luigi_farewell")
+            rospy.set_param('roboy_is_busy', False)
             ctx[prop_flavor_scoop_tuple_list] = []
             ctx[prop_flavors] = []
             ctx[prop_scoops] = []

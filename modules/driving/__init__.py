@@ -21,8 +21,8 @@ PROXIMITY_SYNONYMS = {"near", "close", "at", "right", "by", "in"}
 
 eta = ""
 path_found = False
-current_location = ""
-busy = ""
+roboy_location = ""
+is_busy = False
 ws = 'ws://localhost:8765'  # TODO change to cloud address
 
 with rs.Module(name="Luigi"):
@@ -186,9 +186,9 @@ with rs.Module(name="Luigi"):
         signal=sig_location_question,
         emit_detached=True)
     def ask_location_if_not_busy(ctx: rs.ContextWrapper):
-        print('busy: ' + str(busy))
-        if busy:
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("busy").replace('{current_location}', current_location)
+        communication_with_cloud(server=ws, connection_type="BUSY")
+        if is_busy:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("telegram_busy").format(roboy_location=roboy_location)
         else:
             return rs.Emit(wipe=True)
 
@@ -207,15 +207,12 @@ with rs.Module(name="Luigi"):
         write=(rawio.prop_out, prop_suggested_ice_cream))
     def known_location(ctx: rs.ContextWrapper):
         ctx[prop_suggested_ice_cream] = True
-        print('busy: ' + str(busy))
-        if busy:
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("busy").replace('{current_location}', current_location)
-        global eta
         location = ctx[prop_location]
         if location == "unknown":
             ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("location_qa")
+
         else:
-            communication_with_cloud(ws, location)
+            communication_with_cloud(ws, "LOCATION_ETA", location)
             if path_found:
                 ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location_qa") \
                     .format(location=location, min=eta)
@@ -232,28 +229,41 @@ def extract_location(prop_tokens):
     return "unknown"
 
 
-def communication_with_cloud(server, location="unknown"):
+def communication_with_cloud(server, connection_type, location="unknown"):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    asyncio.get_event_loop().run_until_complete(say(server, location))
+    asyncio.get_event_loop().run_until_complete(say(server, connection_type, location))
     asyncio.get_event_loop().run_until_complete(listen(server))
     loop.close()
 
 
-async def say(server, location):
+async def say(server, connection_type, location):
     async with websockets.connect(server+'/pub') as websocket:
-        location_encoding = pickle.dumps(location)
-        await websocket.send(location_encoding)
+        type_encoding = pickle.dumps(connection_type)
+        await websocket.send(type_encoding)
+        if connection_type == "LOCATION_ETA":
+            location_encoding = pickle.dumps(location)
+            await websocket.send(location_encoding)
 
 
 async def listen(server):
     global eta
     global path_found
+    global roboy_location
+    global is_busy
     async with websockets.connect(server+'/sub') as websocket:
-        eta_encoding = await websocket.recv()
-        path_found_encoding = await websocket.recv()
-        eta = pickle.loads(eta_encoding, encoding='bytes')
-        path_found = pickle.loads(path_found_encoding, encoding='bytes')
+        type_encoding = await websocket.recv()
+        connection_type = pickle.loads(type_encoding, encoding='bytes')
+        if connection_type == "BUSY":
+            is_busy_encoding = await websocket.recv()
+            is_busy = pickle.loads(is_busy_encoding, encoding='bytes')
+            if is_busy:
+                roboy_location_encoding = await websocket.recv()
+                roboy_location = pickle.loads(roboy_location_encoding, encoding='bytes')
+        elif connection_type == "LOCATION_ETA":
+            eta_encoding = await websocket.recv()
+            path_found_encoding = await websocket.recv()
+            eta = pickle.loads(eta_encoding, encoding='bytes')
+            path_found = pickle.loads(path_found_encoding, encoding='bytes')
 
-# TODO: Define a new listen method for busy and current location variables.
-#  This time it will only listen to see if it changed.
+

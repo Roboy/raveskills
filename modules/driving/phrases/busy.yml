@@ -1,5 +1,5 @@
 type: phrases
 name: "telegram_busy"
 opts:
-- "I am serving ice cream at {current_location} right now. Would you like to come over here?"
-- "Why don't you come to {current_location}? I am pretty busy here..."
+- "I am serving ice cream at {roboy_location} right now. Would you like to come over here?"
+- "Why don't you come to {roboy_location}? I am pretty busy here..."
