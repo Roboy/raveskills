@@ -315,7 +315,8 @@ with rs.Module(name="Luigi"):
         busy = True if any(ctx.enum(interloc.prop_all)) else False
 
         # TODO Set this as param if you want to use inside ws_comm, o.w you can just assign a variable
-        rospy.param_set('roboy_is_busy', busy)
+        rospy.set_param('roboy_is_busy', busy)
+        print("BUSY PARAM IS SET:" + str(busy))
 
     # -------------------- states: conversation flow -------------------- #
 
@@ -574,7 +575,6 @@ with rs.Module(name="Luigi"):
         payment_success = ctx[prop_payment_success]
         if payment_success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("luigi_farewell")
-            rospy.set_param('roboy_is_busy', False)
             ctx[prop_flavor_scoop_tuple_list] = []
             ctx[prop_flavors] = []
             ctx[prop_scoops] = []

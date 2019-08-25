@@ -7,7 +7,6 @@ import pickle
 roboy_location = ""
 destination_location = ""
 connection_type = ""
-rospy.set_param('roboy_is_busy', False)
 
 
 def ad_communication(location):
@@ -30,7 +29,6 @@ def communication_with_cloud(server):
     if connection_type == "LOCATION_ETA":
         eta, path_found, error_message = ad_communication(destination_location)
         roboy_location = destination_location
-        rospy.set_param('roboy_is_busy', True)
         print("Received path_found via ROS from AD: ", path_found)
         print("Received eta via ROS from AD: ", eta)
         print("Sending eta and path_found to Telegram.")
@@ -48,7 +46,10 @@ async def say(server, eta ="", path_found = False):
         type_encoding = pickle.dumps(connection_type)
         await websocket.send(type_encoding)
         if connection_type == "BUSY":
-            is_busy = rospy.get_param('roboy_is_busy')
+            if rospy.has_param("roboy_is_busy"):
+                is_busy = rospy.get_param('roboy_is_busy')
+            else:
+                is_busy = False
             is_busy_encoding = pickle.dumps(is_busy)
             await websocket.send(is_busy_encoding)
             if is_busy:
