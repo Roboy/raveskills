@@ -16,7 +16,8 @@ NEGATION_SYNONYMS = {"no", "not"}
 ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
 
 # TODO connect with data base from autonomous driving and possibly add synonyms for all places
-PLACES = {"mensa", "mi", "mw", "ubahn"}
+PLACES = {"midnightsurprise", "interimsfront", "interimssidemensa", "interimssideutum", "mwchicco", "mwstucafe",
+          "mwfachschaft"}
 PROXIMITY_SYNONYMS = {"near", "close", "at", "right", "by", "in"}
 
 eta = ""
@@ -67,6 +68,7 @@ with rs.Module(name="Luigi"):
         triples = ctx[nlp.prop_triples]
         lemmas = ctx[nlp.prop_lemmas]
         location = ""
+        ##TODO FOR SOME REASON UNKNOWN PLACES DOESNT WORK FIX IT ASAP
         for i in range(0, len(triples)):
             if triples[i].match_either_lemma(pred=PLACES) and \
                     not NEGATION_SYNONYMS & set(lemmas):

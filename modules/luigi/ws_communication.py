@@ -14,6 +14,7 @@ def ad_communication(location):
     try:
         drive_to_location = rospy.ServiceProxy('autonomous_driving', DriveToLocation)
         response = drive_to_location(location)
+        rospy.set_param('roboy_is_busy', True) ##TODO Is roboy stuck in here? Check it
         return response.eta, response.path_found, response.error_message
     except rospy.ROSInterruptException as e:
         print('Service call failed:', e)

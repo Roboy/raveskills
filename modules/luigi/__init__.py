@@ -308,6 +308,12 @@ with rs.Module(name="Luigi"):
         if ctx[nlp.prop_yesno].yes() or ctx[nlp.prop_yesno].no():
             return rs.Emit(wipe=True)
 
+
+    @rs.state(cond = rs.sig_startup)
+    def start_state(ctx: rs.ContextWrapper):
+        rospy.set_param('roboy_is_busy', False)
+        print("START_STATE:" + str(rospy.get_param('roboy_is_busy')))
+
     @rs.state(
         cond=interloc.prop_all.pushed() | interloc.prop_all.popped(),
         read=interloc.prop_all)
@@ -316,7 +322,7 @@ with rs.Module(name="Luigi"):
 
         # TODO Set this as param if you want to use inside ws_comm, o.w you can just assign a variable
         rospy.set_param('roboy_is_busy', busy)
-        print("BUSY PARAM IS SET:" + str(busy))
+        print("IS_BUSY:" + str(busy))
 
     # -------------------- states: conversation flow -------------------- #
 
