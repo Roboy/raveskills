@@ -103,7 +103,7 @@ with rs.Module(name="Luigi"):
             always_signal_changed=True)
 
         @rs.state(
-            cond=has_arrived.changed(),
+            cond=has_arrived.changed().detached(),
             read=has_arrived,
             write=rawio.prop_out,
             signal=sig_wait_for_telegram_customer_to_come_close,
