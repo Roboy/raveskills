@@ -26,9 +26,11 @@ except ImportError:
     logger.error("Could not import ROS1 dependencies. Please make sure to have ROS1 installed.")
     ROS_AVAILABLE = False
 
+DESCRIPTOR_SYNONYMS = {"good", "amazing","happy"}
 FLAVORS = {"chocolate", "vanilla"}
 FLAVOR_SYNONYMS = {"flavor", "kind"}
-SCOOP_SYNONYMS = {"scoop", "ball", "servings"}
+SCOOP_SYNONYMS = {"scoop", "ball", "servings","scoops","balls"}
+IMPERATIVE_SYNOYNMS = {"give", "make", "serve"}
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
 NEGATION_SYNONYMS = {"no", "not"}
 ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
@@ -189,6 +191,8 @@ with rs.Module(name="Luigi"):
         lemmas = ctx[nlp.prop_lemmas]
         ner = ctx[nlp.prop_ner]
         logger.warn(tokens)
+        logger.warn(triples)
+        logger.warn(triples[0])
         if len(tokens) == 1 and FLAVORS & set(tokens):
             # this case holds when customer orders ice creams using just the flavor name
             ice_cream_order = True
@@ -243,6 +247,19 @@ with rs.Module(name="Luigi"):
             # "chocolate would be good"
             # again negations are ignored
             ice_cream_order = True
+        elif DESIRE_SYNONYMS & set(tokens) and not NEGATION_SYNONYMS  & set(lemmas):
+            # I think I want to have two scoops of vanilla
+            ice_cream_order = True
+        elif DESCRIPTOR_SYNONYMS & set(tokens) and not NEGATION_SYNONYMS  & set(lemmas) and (FLAVORS & set(tokens) or SCOOP_SYNONYMS & set(tokens)):
+            # i think two scoops of vanilla sounds good
+            # what an amazing day to have 3 scoops of ice cream
+            # 2 vanilla sounds good
+            ice_cream_order = True
+        elif IMPERATIVE_SYNOYNMS & set(tokens) and not NEGATION_SYNONYMS  & set(lemmas) and (FLAVORS & set(tokens) or SCOOP_SYNONYMS & set(tokens)):
+            # give me three
+            # serve me chocolate
+            # can you give me four vanilla
+            ice_cream_order = True
         if ice_cream_order:
             flavors = extract_flavors(tokens)
             scoops = extract_scoops(ner)
@@ -277,14 +294,12 @@ with rs.Module(name="Luigi"):
             # it does not hold whenever the customer negates his expression, i.e.
             # "i don't want to pay with cash"
             # "i won't pay using paypal"
-            logger.info("Entered payment detected 1")
             detected_payment_option = True
         elif triples[0].match_either_lemma(pred=PAYMENT_OPTION_SYNONYMS) and \
                 not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when the customer answers the payment question with
             # "paypal please"
             # "cash"
-            logger.info("Entered payment detected 2")
             detected_payment_option = True
         elif triples[0].match_either_lemma(pred={"with", "by", "in"}) and \
                 triples[0].match_either_lemma(obj=PAYMENT_OPTION_SYNONYMS) and \
@@ -293,14 +308,12 @@ with rs.Module(name="Luigi"):
             # "paypal please"
             # "by cash"
             # "in coins"
-            logger.info("Entered payment detected 3")
             detected_payment_option = True
         elif triples[0].match_either_lemma(pred={"with", "by", "in"}) and \
                 triples[0].match_either_lemma(obj={"please"}) and \
                 not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when the customer answers the payment question with
             # "with paypal please"
-            logger.info("Entered payment detected 4")
             detected_payment_option = True
         elif triples[0].match_either_lemma(subj={"me"}) and \
                 triples[0].match_either_lemma(pred={"let"}) and \
@@ -308,7 +321,6 @@ with rs.Module(name="Luigi"):
                 not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when customer answers the payment question using phrases like
             # "let me pay with cash please"
-            logger.info("Entered payment detected 5")
             detected_payment_option = True
         if detected_payment_option:
             logger.info("Exiting payment detection")
