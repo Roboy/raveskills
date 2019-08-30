@@ -20,7 +20,7 @@ config:
   import:
     # - ravestate_fillers
     - ravestate_hibye
-    - ravestate_roboyio
+    #- ravestate_roboyio
     # - ravestate_conio
 #    - ravestate_visionio
     - luigi

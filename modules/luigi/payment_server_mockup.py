@@ -7,7 +7,7 @@ def get_amount_inserted(request):
     print("payment method:", request.payment_option)
     print("flavors:", request.flavors)
     print("scoops:", request.scoops)
-    return PaymentResponse(242, "")  # if two scoops are ordered, 42 cents are returned :)
+    return PaymentResponse(242, "", "")  # if two scoops are ordered, 42 cents are returned :)
 
 
 if __name__ == "__main__":

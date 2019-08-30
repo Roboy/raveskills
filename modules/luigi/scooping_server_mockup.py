@@ -8,7 +8,7 @@ class ScoopingActionServer:
 
     def __init__(self):
         self.a_server = actionlib.SimpleActionServer(
-            "scooping_as", OrderIceCreamAction, execute_cb=self.execute_cb, auto_start=False)
+            "luigi_scoop", OrderIceCreamAction, execute_cb=self.execute_cb, auto_start=False)
         self.a_server.start()
 
     def execute_cb(self, goal):

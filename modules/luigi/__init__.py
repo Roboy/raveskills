@@ -94,7 +94,7 @@ with rs.Module(name="Luigi"):
     # ----------- ROS client and methods ---------------- #
 
     if ROS_AVAILABLE:
-        client = actionlib.SimpleActionClient('scooping_as', OrderIceCreamAction)
+        client = actionlib.SimpleActionClient('luigi_scoop', OrderIceCreamAction)
 
         has_arrived = ros1.Ros1SubProperty(
             name="has_arrived",
@@ -130,6 +130,7 @@ with rs.Module(name="Luigi"):
                 goal.flavors = flavors
                 goal.scoops = scoops
                 client.send_goal(goal, feedback_cb=self.scooping_feedback_cb)
+                client.wait_for_result()
             else:
                 self.stop_feedback = True
 
@@ -150,7 +151,7 @@ with rs.Module(name="Luigi"):
             except rospy.ROSInterruptException as e:
                 logger.error('Service call failed:', e)
         else:
-            return 242, ""
+            return 242, "", ""
 
 
     # -------------------- states: detection -------------------- #
@@ -308,12 +309,6 @@ with rs.Module(name="Luigi"):
             # this case holds when customer answers the payment question using phrases like
             # "let me pay with cash please"
             logger.info("Entered payment detected 5")
-            detected_payment_option = True
-        elif len(tokens)==1 and tokens[0] in PAYMENT_OPTION_SYNONYMS:
-            # this case holds when the customer answers the payment question with
-            # "paypal"
-            # "cash"
-            logger.info("Entered payment detected 6")
             detected_payment_option = True
         if detected_payment_option:
             logger.info("Exiting payment detection")
