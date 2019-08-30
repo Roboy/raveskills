@@ -18,7 +18,8 @@ module: core
 config:
   tickrate: 10
   import:
-    - ravestate_conio
+  #  - ravestate_conio
+    - ravestate_roboyio
     - ravestate_fillers
     - ravestate_wildtalk
     - ravestate_hibye

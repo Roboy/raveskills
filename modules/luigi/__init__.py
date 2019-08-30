@@ -179,12 +179,15 @@ with rs.Module(name="Luigi"):
         signal=sig_changed_flavor_or_scoops,
         emit_detached=True)
     def detect_flavors_and_scoops(ctx: rs.ContextWrapper):
+        logger.info("Entered detect flavors again with")
+
         ctx[prop_asked_order_count] = 1
         ice_cream_order = False
         tokens = ctx[nlp.prop_tokens]
         triples = ctx[nlp.prop_triples]
         lemmas = ctx[nlp.prop_lemmas]
         ner = ctx[nlp.prop_ner]
+        logger.warn(tokens)
         if len(tokens) == 1 and FLAVORS & set(tokens):
             # this case holds when customer orders ice creams using just the flavor name
             ice_cream_order = True
@@ -200,8 +203,12 @@ with rs.Module(name="Luigi"):
             # this case holds when the customer states the number of scoops as follows
             # "one each"
             ice_cream_order = True
-        elif triples[0].match_either_lemma(subj={"i"}) and \
-                triples[0].match_either_lemma(pred=DESIRE_SYNONYMS) and \
+        # elif triples[0].match_either_lemma(subj={"i"}) and \
+        #         triples[0].match_either_lemma(pred=DESIRE_SYNONYMS) and \
+        #         triples[0].match_either_lemma(obj=FLAVORS) and \
+        #         not NEGATION_SYNONYMS & set(lemmas):
+
+        elif triples[0].match_either_lemma(pred=DESIRE_SYNONYMS) and \
                 triples[0].match_either_lemma(obj=FLAVORS) and \
                 not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when customer orders ice cream using phrases like
@@ -257,6 +264,7 @@ with rs.Module(name="Luigi"):
         tokens = ctx[nlp.prop_tokens]
         triples = ctx[nlp.prop_triples]
         lemmas = ctx[nlp.prop_lemmas]
+        logger.info("Entering payment detection")
         if triples[0].match_either_lemma(subj={"i"}) and \
                 triples[0].match_either_lemma(pred=PAY_SYNONYMS) and \
                 triples[0].match_either_lemma(obj=PAYMENT_OPTION_SYNONYMS) and \
@@ -268,12 +276,14 @@ with rs.Module(name="Luigi"):
             # it does not hold whenever the customer negates his expression, i.e.
             # "i don't want to pay with cash"
             # "i won't pay using paypal"
+            logger.info("Entered payment detected 1")
             detected_payment_option = True
         elif triples[0].match_either_lemma(pred=PAYMENT_OPTION_SYNONYMS) and \
                 not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when the customer answers the payment question with
             # "paypal please"
             # "cash"
+            logger.info("Entered payment detected 2")
             detected_payment_option = True
         elif triples[0].match_either_lemma(pred={"with", "by", "in"}) and \
                 triples[0].match_either_lemma(obj=PAYMENT_OPTION_SYNONYMS) and \
@@ -281,14 +291,15 @@ with rs.Module(name="Luigi"):
             # this case holds when the customer answers the payment question with
             # "paypal please"
             # "by cash"
-            # "paypal"
             # "in coins"
+            logger.info("Entered payment detected 3")
             detected_payment_option = True
         elif triples[0].match_either_lemma(pred={"with", "by", "in"}) and \
                 triples[0].match_either_lemma(obj={"please"}) and \
                 not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when the customer answers the payment question with
             # "with paypal please"
+            logger.info("Entered payment detected 4")
             detected_payment_option = True
         elif triples[0].match_either_lemma(subj={"me"}) and \
                 triples[0].match_either_lemma(pred={"let"}) and \
@@ -296,8 +307,16 @@ with rs.Module(name="Luigi"):
                 not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when customer answers the payment question using phrases like
             # "let me pay with cash please"
+            logger.info("Entered payment detected 5")
+            detected_payment_option = True
+        elif len(tokens)==1 and tokens[0] in PAYMENT_OPTION_SYNONYMS:
+            # this case holds when the customer answers the payment question with
+            # "paypal"
+            # "cash"
+            logger.info("Entered payment detected 6")
             detected_payment_option = True
         if detected_payment_option:
+            logger.info("Exiting payment detection")
             ctx[prop_payment_option] = PaymentOptions.PAYPAL if "paypal" in tokens else PaymentOptions.COIN
             return rs.Emit(wipe=True)
 

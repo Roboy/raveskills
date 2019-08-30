@@ -19,10 +19,8 @@ config:
   tickrate: 10
   import:
     - ravestate_telegramio
-    - ravestate_conio
     - ravestate_fillers
     - ravestate_hibye
-    - ravestate_roboyio
     - driving
 
 ---

@@ -16,12 +16,13 @@
 ---
 module: core
 config:
-  tickrate: 10
+  tickrate: 5
   import:
-    - ravestate_fillers
+    # - ravestate_fillers
     - ravestate_hibye
     - ravestate_roboyio
-    - ravestate_conio
+    # - ravestate_conio
+#    - ravestate_visionio
     - luigi
   ros2-node-name: "ros2-node-name"
 
@@ -36,4 +37,3 @@ module: idle
 config:
   impatience_threshold: 10.0  # number of seconds of "pressure" after which a filler should be sent
   bored_threshold: 20.0 # number of seconds of "no activity" after which active engagement should activate
-
