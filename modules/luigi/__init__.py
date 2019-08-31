@@ -27,7 +27,7 @@ except ImportError:
     ROS_AVAILABLE = False
 
 DESCRIPTOR_SYNONYMS = {"good", "amazing","happy"}
-FLAVORS = {"chocolate", "vanilla"}
+FLAVORS = {"chocolate", "vanilla", "strawberry", "chocolates", "strawberries", "vanillas"}
 FLAVOR_SYNONYMS = {"flavor", "kind"}
 SCOOP_SYNONYMS = {"scoop", "ball", "servings","scoops","balls"}
 IMPERATIVE_SYNOYNMS = {"give", "make", "serve"}
@@ -639,11 +639,11 @@ with rs.Module(name="Luigi"):
 # -------------------- functions outside module -------------------- #
 
 def fix_pronunciation(flavor):
-    if flavor == "vanilla":
+    if flavor == "vanilla" or flavor == "vanillas":
         return "vanillla"
-    if flavor == "chocolate":
+    if flavor == "chocolate" or flavor == "chocolates":
         return "choclate"
-    if flavor == "strawberry":
+    if flavor == "strawberry" or flavor == "strawberries":
         return "strawbaary"
 
 
