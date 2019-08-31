@@ -32,6 +32,7 @@ FLAVOR_SYNONYMS = {"flavor", "kind"}
 SCOOP_SYNONYMS = {"scoop", "ball", "servings","scoops","balls"}
 IMPERATIVE_SYNOYNMS = {"give", "make", "serve"}
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
+POLITE_SYNONYMS = {"please", "bitte"}
 NEGATION_SYNONYMS = {"no", "not"}
 ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
 PAYMENT_OPTION_SYNONYMS = {"paypal", "cash", "coins", "coin", "money"}
@@ -190,14 +191,9 @@ with rs.Module(name="Luigi"):
         triples = ctx[nlp.prop_triples]
         lemmas = ctx[nlp.prop_lemmas]
         ner = ctx[nlp.prop_ner]
-        logger.warn(tokens)
-        logger.warn(triples)
-        logger.warn(triples[0])
+        logger.warn(ner)
         if len(tokens) == 1 and FLAVORS & set(tokens):
             # this case holds when customer orders ice creams using just the flavor name
-            ice_cream_order = True
-        elif len(tokens) == 1 and extract_scoops(ner):
-            # this case holds when the customer simply states the number of scoops
             ice_cream_order = True
         elif extract_scoops(ner) and triples[0].match_either_lemma(pred=SCOOP_SYNONYMS):
             # this case holds when the customer states the number of scoops using
@@ -233,6 +229,11 @@ with rs.Module(name="Luigi"):
             # in case of negation the order is not recognized
             # "no chocolate ice cream please"
             # "it is definitely not vanilla"
+            ice_cream_order = True
+        elif extract_scoops(ner) and not NEGATION_SYNONYMS & set(lemmas):
+            # this case holds when the order is phrased in a simple way like
+            # "two please"
+            # "three"
             ice_cream_order = True
         elif triples[0].match_either_lemma(obj=FLAVORS) and \
                 triples[0].match_either_lemma(pred=SCOOP_SYNONYMS) and \
