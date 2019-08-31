@@ -12,11 +12,11 @@ Q:                                          # possible questions
 - "my ferrari is ready. tell me where you are and i will try to come as fast as possible"
 A:                                          # answers
   SUCCESS:
-  - "i am coming to get you major tom in {min} minutes, hold still on {location}."
-  - "one big roboy is coming to your location {location} in {min} minutes."
-  - "i have heard that you are in {location}. i hope to be there in {min} minutes."
-  - "{location} in {min} minutes! here i come!"
-  - "hide your pretty robots. because roboy is coming to {location} in {min} minutes ."
+  - "i am coming to get you major tom in {min} seconds, hold still on {location}."
+  - "one big roboy is coming to your location {location} in {min} seconds."
+  - "i have heard that you are in {location}. i hope to be there in {min} seconds."
+  - "{location} in {min} seconds! here i come!"
+  - "hide your pretty robots. because roboy is coming to {location} in {min} seconds ."
   FAILURE:
   - "hmm, i didn't understand where you are... maybe i can meet you at a spot everyone knows?"
   - "could you repeat again? or tell me a location more people known maybe?"

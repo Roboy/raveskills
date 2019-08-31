@@ -12,18 +12,20 @@ from os.path import realpath, dirname, join
 verbaliser.add_folder(join(dirname(realpath(__file__))+"/phrases"))
 
 DESIRE_SYNONYMS = {"want", "like", "desire", "have", "decide", "get", "choose", "wish", "prefer"}
-NEGATION_SYNONYMS = {"no", "not"}
+NEGATION_SYNONYMS = {"no", "not", "nope"}
 ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
 
 # TODO connect with data base from autonomous driving and possibly add synonyms for all places
 PLACES = {"midnightsurprise", "interimsfront", "interimssidemensa", "interimssideutum", "mwchicco", "mwstucafe",
-          "mwfachschaft"}
+          "mwfachschaft", "midnight surprise", "interims front", "interims side mensa", "interims side utum", "mw chicco", "mw stucafe",
+          "mw fachschaft"}
 PROXIMITY_SYNONYMS = {"near", "close", "at", "right", "by", "in"}
 
 eta = ""
 path_found = False
 roboy_location = ""
 is_busy = False
+first_yes = False
 ws = 'ws://localhost:8765'  # TODO change to cloud address
 
 with rs.Module(name="Luigi"):
@@ -47,43 +49,43 @@ with rs.Module(name="Luigi"):
 
     # -------------------- detection methods -------------------- #
 
-    def detect_triple_ice_cream_desire(ctx):
-        triples = ctx[nlp.prop_triples]
-        lemmas = ctx[nlp.prop_lemmas]
-        ice_cream_desire = False
-        for i in range(0, len(triples)):
-            if triples[i].match_either_lemma(subj={"i"}) and \
-                    triples[i].match_either_lemma(pred=DESIRE_SYNONYMS) and \
-                    triples[i].match_either_lemma(obj=ICE_CREAM_SYNONYMS) and \
-                    not NEGATION_SYNONYMS & set(lemmas):
-                # signal is emitted when customer expresses the wish for ice cream using phrases like
-                # "i would like to have ice cream please"
-                # "can i get some ice cream?"
-                # "i want ice cream!"
-                ice_cream_desire = True
-        return ice_cream_desire
+    # def detect_triple_ice_cream_desire(ctx):
+    #     triples = ctx[nlp.prop_triples]
+    #     lemmas = ctx[nlp.prop_lemmas]
+    #     ice_cream_desire = False
+    #     print("INSIDE ICE CREAM DESIRE")
+    #     for i in range(0, len(triples)):
+    #         if triples[i].match_either_lemma(subj={"i"}) and \
+    #                 triples[i].match_either_lemma(pred=DESIRE_SYNONYMS) and \
+    #                 triples[i].match_either_lemma(obj=ICE_CREAM_SYNONYMS) and \
+    #                 not NEGATION_SYNONYMS & set(lemmas):
+    #             # signal is emitted when customer expresses the wish for ice cream using phrases like
+    #             # "i would like to have ice cream please"
+    #             # "can i get some ice cream?"
+    #             # "i want ice cream!"
+    #             ice_cream_desire = True
+    #     return ice_cream_desire
 
     def detect_triple_location(ctx):
         tokens = ctx[nlp.prop_tokens]
         triples = ctx[nlp.prop_triples]
         lemmas = ctx[nlp.prop_lemmas]
+        yesno = ctx[nlp.prop_yesno]
+        global first_yes
         location = ""
-        ##TODO FOR SOME REASON UNKNOWN PLACES DOESNT WORK FIX IT ASAP
         for i in range(0, len(triples)):
             if triples[i].match_either_lemma(pred=PLACES) and \
                     not NEGATION_SYNONYMS & set(lemmas):
                 # for expressing locations with just single words such as "mensa" or "mi building"
                 location = extract_location(tokens)
             elif triples[i].match_either_lemma(subj={"i"}) and \
-                    triples[i].match_either_lemma(pred={"be"}) and \
-                    triples[i].match_either_lemma(obj=PLACES) and \
+                    triples[i].match_either_lemma(pred={"be"})  and \
                     not NEGATION_SYNONYMS & set(lemmas):
                 # for expressing locations using sentences like
                 # "i am in front of the mensa"
                 # "i am near the mi"
                 location = extract_location(tokens)
             elif triples[i].match_either_lemma(pred=PROXIMITY_SYNONYMS) and \
-                    triples[i].match_either_lemma(obj=PLACES) and \
                     not NEGATION_SYNONYMS & set(lemmas):
                 # for expressing locations using phrases like
                 # "right by the mensa"
@@ -96,35 +98,44 @@ with rs.Module(name="Luigi"):
                 # "meet me at the mw"
                 # "can you come to mensa"
                 location = extract_location(tokens)
+            elif first_yes and \
+                    not NEGATION_SYNONYMS & set(lemmas):
+                # for expressing locations in one word
+                # "unknownlocation"
+                # "mw"
+                # "mensa"
+                print("IM HERE")
+                location = extract_location(tokens)
+        first_yes = True
         return location
 
     # -------------------- detection states -------------------- #
 
-    @rs.state(
-        cond=nlp.prop_tokens.changed(),
-        read=(nlp.prop_triples, nlp.prop_tokens, nlp.prop_lemmas),
-        signal=sig_ice_cream_desire_and_not_location)
-    def detect_ice_cream_desire_and_not_location(ctx: rs.ContextWrapper):
-        ice_cream_desire = detect_triple_ice_cream_desire(ctx)
-        location = detect_triple_location(ctx)
-        if ice_cream_desire and not location:
-            return rs.Emit(wipe=True)
+    # @rs.state(
+    #     cond=nlp.prop_tokens.changed(),
+    #     read=(nlp.prop_triples, nlp.prop_tokens, nlp.prop_lemmas, nlp.prop_yesno),
+    #     signal=sig_ice_cream_desire_and_not_location)
+    # def detect_ice_cream_desire_and_not_location(ctx: rs.ContextWrapper):
+    #     ice_cream_desire = detect_triple_ice_cream_desire(ctx)
+    #     location = detect_triple_location(ctx)
+    #     if ice_cream_desire and not location:
+    #         return rs.Emit(wipe=True)
 
-    @rs.state(
-        cond=nlp.prop_tokens.changed(),
-        read=(nlp.prop_triples, nlp.prop_tokens, nlp.prop_lemmas),
-        write=prop_location,
-        signal=sig_ice_cream_desire_and_location)
-    def detect_ice_cream_desire_and_location(ctx: rs.ContextWrapper):
-        ice_cream_desire = detect_triple_ice_cream_desire(ctx)
-        location = detect_triple_location(ctx)
-        if ice_cream_desire and location:
-            ctx[prop_location] = location
-            return rs.Emit(wipe=True)
+    # @rs.state(
+    #     cond=nlp.prop_tokens.changed(),
+    #     read=(nlp.prop_triples, nlp.prop_tokens, nlp.prop_lemmas, nlp.prop_yesno),
+    #     write=prop_location,
+    #     signal=sig_ice_cream_desire_and_location)
+    # def detect_ice_cream_desire_and_location(ctx: rs.ContextWrapper):
+    #     ice_cream_desire = detect_triple_ice_cream_desire(ctx)
+    #     location = detect_triple_location(ctx)
+    #     if ice_cream_desire and location:
+    #         ctx[prop_location] = location
+    #         return rs.Emit(wipe=True)
 
     @rs.state(
         cond=nlp.prop_tokens.changed() & sig_asked_for_location.detached().max_age(-1),
-        read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas),
+        read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas, nlp.prop_yesno),
         write=prop_location,
         signal=sig_ice_cream_desire_and_location,
         emit_detached=True)
@@ -158,20 +169,20 @@ with rs.Module(name="Luigi"):
             ctx[rawio.prop_out] = verbaliser.get_random_question('greet_general')
             return rs.Emit(wipe=True)
 
-    @rs.state(
-        cond=sig_ice_cream_desire_and_not_location,
-        read=prop_suggested_ice_cream,
-        write=(rawio.prop_out, prop_suggested_ice_cream),
-        signal=sig_decide_to_call_customer,
-        emit_detached=True)
-    def react_to_ice_cream_desire_and_no_location(ctx: rs.ContextWrapper):
-        ctx[rawio.prop_out] = verbaliser.get_random_successful_answer('greet_general')
-        ctx[prop_suggested_ice_cream] = True
-        return rs.Emit(wipe=True)
+    # @rs.state(
+    #     cond=sig_ice_cream_desire_and_not_location,
+    #     read=prop_suggested_ice_cream,
+    #     write=(rawio.prop_out, prop_suggested_ice_cream),
+    #     signal=sig_decide_to_call_customer,
+    #     emit_detached=True)
+    # def react_to_ice_cream_desire_and_no_location(ctx: rs.ContextWrapper):
+    #     ctx[rawio.prop_out] = verbaliser.get_random_successful_answer('greet_general')
+    #     ctx[prop_suggested_ice_cream] = True
+    #     return rs.Emit(wipe=True)
 
     @rs.state(
-        cond=sig_suggested_ice_cream.max_age(12) & sig_yesno_detected,
-        read=nlp.prop_yesno,
+        cond=sig_suggested_ice_cream.max_age(12) | sig_yesno_detected,
+        read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas, nlp.prop_yesno),
         write=rawio.prop_out,
         signal=sig_decide_to_call_customer,
         emit_detached=True)
@@ -225,9 +236,14 @@ with rs.Module(name="Luigi"):
 
 
 def extract_location(prop_tokens):
+    phrase =""
     for token in prop_tokens:
-        if token in PLACES:
-            return token
+        phrase = phrase +" " +token
+    print("PHRASE: " + phrase)
+    for place in PLACES:
+        if place in phrase:
+            print("KNOWN: "+ place)
+            return place.replace(" ","")
     return "unknown"
 
 

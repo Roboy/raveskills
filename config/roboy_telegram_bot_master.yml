@@ -13,10 +13,14 @@ config:
   tickrate: 2
   import:
     - ravestate_telegramio
+    - ravestate_fillers
+    - ravestate_hibye
+    - driving
 
 ---
 module: telegramio
 config:
   child_config_files:
-    - /Users/joseph/ravestate/config/roboy_telegram_bot_child.yml
-    - /Users/joseph/ravestate/config/keys.yml
+    - /raveskills/config/roboy_telegram_bot_child.yml
+    - /raveskills/config/keys.yml
+
