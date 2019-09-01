@@ -104,7 +104,6 @@ with rs.Module(name="Luigi"):
                 # "unknownlocation"
                 # "mw"
                 # "mensa"
-                print("IM HERE")
                 location = extract_location(tokens)
         first_yes = True
         return location
@@ -221,16 +220,20 @@ with rs.Module(name="Luigi"):
     def known_location(ctx: rs.ContextWrapper):
         ctx[prop_suggested_ice_cream] = True
         location = ctx[prop_location]
-        if location == "unknown":
-            ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("location_qa")
+        communication_with_cloud(server=ws, connection_type="BUSY")
+        if not is_busy:
+            if location == "unknown":
+                ctx[rawio.prop_out] = verbaliser.get_random_failure_answer("location_qa")
 
-        else:
-            communication_with_cloud(ws, "LOCATION_ETA", location)
-            if path_found:
-                ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location_qa") \
-                    .format(location=location, min=eta)
             else:
-                ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_path")
+                communication_with_cloud(ws, "LOCATION_ETA", location)
+                if path_found:
+                    ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("location_qa") \
+                        .format(location=location, min=eta)
+                else:
+                    ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_path")
+        else:
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("telegram_busy").format(roboy_location=roboy_location)
 
 # -------------------- functions outside module -------------------- #
 
