@@ -27,7 +27,7 @@ except ImportError:
     ROS_AVAILABLE = False
 
 DESCRIPTOR_SYNONYMS = {"good", "amazing","happy"}
-FLAVORS = {"chocolate", "vanilla", "strawberry", "chocolates", "strawberries", "vanillas"}
+FLAVORS = {"chocolate", "choco", "vanilla", "strawberry", "chocolates", "strawberries", "vanillas"}
 FLAVOR_SYNONYMS = {"flavor", "kind"}
 SCOOP_SYNONYMS = {"scoop", "ball", "servings","scoops","balls"}
 IMPERATIVE_SYNOYNMS = {"give", "make", "serve"}
@@ -316,8 +316,7 @@ with rs.Module(name="Luigi"):
             # this case holds when the customer answers the payment question with
             # "with paypal please"
             detected_payment_option = True
-        elif triples[0].match_either_lemma(subj={"me"}) and \
-                triples[0].match_either_lemma(pred={"let"}) and \
+        elif triples[0].match_either_lemma(pred={"let"}) and \
                 triples[0].match_either_lemma(obj=PAYMENT_OPTION_SYNONYMS) and \
                 not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when customer answers the payment question using phrases like
@@ -641,7 +640,7 @@ with rs.Module(name="Luigi"):
 def fix_pronunciation(flavor):
     if flavor == "vanilla" or flavor == "vanillas":
         return "vanillla"
-    if flavor == "chocolate" or flavor == "chocolates":
+    if flavor == "chocolate" or flavor == "chocolates" or flavor == "choco":
         return "choclate"
     if flavor == "strawberry" or flavor == "strawberries":
         return "strawbaary"

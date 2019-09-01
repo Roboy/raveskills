@@ -1,12 +1,12 @@
 type: phrases
 name: "payment"
 opts:
-- "payment time! you owe me {cost} euros for the {order}. how do you want to pay?"
-- "that will be {cost} euros for the {order}. what payment method do you prefer?"
-- "do you want some ketchup with that? just kidding, {cost} euros for the {order}. how do you want to pay?"
-- "all set! i get {cost} euros for the {order}. what payment method do you want to use?"
-- "that will be {cost} euros for the {order}. how do you want to pay?"
-- "for the {order} i will need {cost} euros. no money no ice cream! how do you want to pay?"
+- "payment time! you owe me {cost} euros for the {order}. how do you want to pay, paypal or coins?"
+- "that will be {cost} euros for the {order}. what payment method do you prefer? paypal or coins?"
+- "do you want some ketchup with that? just kidding, {cost} euros for the {order}. how do you want to pay? paypal or coins?"
+- "all set! i get {cost} euros for the {order}. what payment method do you want to use? paypal or coins?"
+- "that will be {cost} euros for the {order}. how do you want to pay? paypal or coins?"
+- "for the {order} i will need {cost} euros. no money no ice cream! how do you want to pay? paypal or coins?"
 ---
 type: phrases
 name: "paypal_option"
