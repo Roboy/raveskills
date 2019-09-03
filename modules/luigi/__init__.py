@@ -248,7 +248,7 @@ with rs.Module(name="Luigi"):
             # "chocolate would be good"
             # again negations are ignored
             ice_cream_order = True
-        elif DESIRE_SYNONYMS & set(tokens) and not NEGATION_SYNONYMS  & set(lemmas):
+        elif DESIRE_SYNONYMS & set(tokens) and FLAVORS & set(tokens) and not NEGATION_SYNONYMS  & set(lemmas):
             # I think I want to have two scoops of vanilla
             ice_cream_order = True
         elif DESCRIPTOR_SYNONYMS & set(tokens) and not NEGATION_SYNONYMS  & set(lemmas) and (FLAVORS & set(tokens) or SCOOP_SYNONYMS & set(tokens)):
