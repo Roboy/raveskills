@@ -51,6 +51,12 @@ class ScoopingFeedbackMessages(IntEnum):
     TIME = -2
 
 
+class DetectionStates(IntEnum):
+    NOT_SET = -1
+    OUT = 0
+    IN = 1
+
+
 with rs.Module(name="Luigi"):
 
     # -------------------- properties -------------------- #
@@ -73,6 +79,22 @@ with rs.Module(name="Luigi"):
                                          allow_read=True, allow_write=True)
     prop_asked_payment_count = rs.Property(name="asked_payment_count", always_signal_changed=False, default_value=1,
                                            allow_read=True, allow_write=True)
+    prop_ice_cream_desire_detection = rs.Property(name="ice_cream_desire_detection", always_signal_changed=False,
+                                                  default_value=DetectionStates.NOT_SET,
+                                                  allow_read=True,
+                                                  allow_write=True)
+    prop_flavors_and_scoops_detection = rs.Property(name="flavors_and_scoops_detection", always_signal_changed=False,
+                                                    default_value=DetectionStates.NOT_SET,
+                                                    allow_read=True,
+                                                    allow_write=True)
+    prop_payment_option_detection = rs.Property(name="payment_option_detection", always_signal_changed=False,
+                                                default_value=DetectionStates.NOT_SET,
+                                                allow_read=True,
+                                                allow_write=True)
+    prop_yesno_detection = rs.Property(name="yesno_detection", always_signal_changed=False,
+                                       default_value=DetectionStates.NOT_SET,
+                                       allow_read=True,
+                                       allow_write=True)
 
     # -------------------- signals -------------------- #
 
@@ -162,6 +184,7 @@ with rs.Module(name="Luigi"):
     @rs.state(
         cond=nlp.prop_tokens.changed(),
         read=(nlp.prop_triples, nlp.prop_lemmas),
+        write=prop_ice_cream_desire_detection,
         signal=sig_ice_cream_desire)
     def detect_ice_cream_desire(ctx: rs.ContextWrapper):
         triples = ctx[nlp.prop_triples]
@@ -174,12 +197,14 @@ with rs.Module(name="Luigi"):
             # "i would like to have ice cream please"
             # "can i get some ice cream?"
             # "i want ice cream!"
+            ctx[prop_ice_cream_desire_detection] = DetectionStates.IN
             return rs.Emit(wipe=True)
+        ctx[prop_ice_cream_desire_detection] = DetectionStates.OUT
 
     @rs.state(
         cond=nlp.prop_tokens.changed(),
         read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas, nlp.prop_ner, prop_flavors, prop_scoops),
-        write=(prop_scoops, prop_flavors, prop_asked_order_count),
+        write=(prop_scoops, prop_flavors, prop_asked_order_count, prop_flavors_and_scoops_detection),
         signal=sig_changed_flavor_or_scoops,
         emit_detached=True)
     def detect_flavors_and_scoops(ctx: rs.ContextWrapper):
@@ -261,6 +286,7 @@ with rs.Module(name="Luigi"):
             # serve me chocolate
             # can you give me four vanilla
             ice_cream_order = True
+
         if ice_cream_order:
             flavors = extract_flavors(tokens)
             scoops = extract_scoops(ner)
@@ -270,12 +296,14 @@ with rs.Module(name="Luigi"):
                 ctx[prop_flavors] = prop_flavors.read() + flavors
             if scoops:
                 ctx[prop_scoops] = prop_scoops.read() + scoops
+            ctx[prop_flavors_and_scoops_detection] = DetectionStates.IN
             return rs.Emit(wipe=True)
+        ctx[prop_flavors_and_scoops_detection] = DetectionStates.OUT
 
     @rs.state(
         cond=nlp.prop_tokens.changed(),
         read=(nlp.prop_tokens, nlp.prop_triples, nlp.prop_lemmas),
-        write=prop_payment_option,
+        write=(prop_payment_option, prop_payment_option_detection),
         signal=sig_changed_payment_option,
         emit_detached=True)
     def detect_payment_option(ctx: rs.ContextWrapper):
@@ -322,20 +350,59 @@ with rs.Module(name="Luigi"):
             # this case holds when customer answers the payment question using phrases like
             # "let me pay with cash please"
             detected_payment_option = True
+
         if detected_payment_option:
             logger.info("Exiting payment detection")
             ctx[prop_payment_option] = PaymentOptions.PAYPAL if "paypal" in tokens else PaymentOptions.COIN
+            ctx[prop_payment_option_detection] = DetectionStates.IN
             return rs.Emit(wipe=True)
+        ctx[prop_payment_option_detection] = DetectionStates.OUT
 
     @rs.state(
         read=nlp.prop_yesno,
+        write=prop_yesno_detection,
         signal=sig_yesno_detected)
     def yesno_detection(ctx: rs.ContextWrapper):
         if ctx[nlp.prop_yesno].yes() or ctx[nlp.prop_yesno].no():
+            ctx[prop_yesno_detection] = True
+            ctx[prop_yesno_detection] = DetectionStates.IN
             return rs.Emit(wipe=True)
+        ctx[prop_yesno_detection] = DetectionStates.OUT
 
+    @rs.state(
+        cond=(
+            prop_yesno_detection.changed() and prop_payment_option_detection.changed() and
+            prop_ice_cream_desire_detection.changed() and prop_flavors_and_scoops_detection.changed()
+        ),
+        read=(
+            prop_yesno_detection, prop_payment_option_detection, prop_ice_cream_desire_detection,
+            prop_flavors_and_scoops_detection, rawio.prop_out
+        ),
+        write=(
+            prop_yesno_detection, prop_payment_option_detection, prop_ice_cream_desire_detection,
+            prop_flavors_and_scoops_detection, rawio.prop_out
+        ))
+    def detections_understood(ctx: rs.ContextWrapper):
+        detections = [
+            ctx[prop_yesno_detection],
+            ctx[prop_payment_option_detection],
+            ctx[prop_ice_cream_desire_detection],
+            ctx[prop_flavors_and_scoops_detection]
+        ]
 
-    @rs.state(cond = rs.sig_startup)
+        ctx[prop_yesno_detection] = DetectionStates.NOT_SET
+        ctx[prop_payment_option_detection] = DetectionStates.NOT_SET
+        ctx[prop_ice_cream_desire_detection] = DetectionStates.NOT_SET
+        ctx[prop_flavors_and_scoops_detection] = DetectionStates.NOT_SET
+
+        for detection in detections:
+            if detection == DetectionStates.IN:
+                return
+
+        if not (ctx[rawio.prop_out] in verbaliser.get_phrase_list(lang.intent_greeting)):
+            ctx[rawio.prop_out] = "Could not understand you"
+
+    @rs.state(cond=rs.sig_startup)
     def start_state(ctx: rs.ContextWrapper):
         rospy.set_param('roboy_is_busy', False)
         print("START_STATE:" + str(rospy.get_param('roboy_is_busy')))
