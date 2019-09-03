@@ -86,3 +86,11 @@ opts:
 - "crazy, i have only {c} scoop{s} left to scoop"
 - "wow now i only need to scoop {c} scoop{s} more"
 - "how sad that i only have to scoop {c} scoop{s} of ice cream more"
+---
+type: phrases
+name: "listening_error"
+opts:
+- "i could not understand you. could you repeat again?"
+- "oh boy my ears are getting old. could you repeat what you said?"
+- "i am sorry i could not hear you. could you repeat again?"
+- "sorry did not hear you. say what again?"

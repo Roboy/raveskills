@@ -63,6 +63,8 @@ with rs.Module(name="Luigi"):
 
     prop_flavors = rs.Property(name="flavor", always_signal_changed=False, default_value=[], allow_read=True,
                                allow_write=True)
+    prop_order_verified = rs.Property(name="order_verified", always_signal_changed=False, default_value=False, allow_read=True,
+                               allow_write=True)
     prop_scoops = rs.Property(name="scoops", always_signal_changed=False, default_value=[], allow_read=True,
                               allow_write=True)
     prop_flavor_scoop_tuple_list = rs.Property(name="flavor_scoop_tuple_list", default_value=[], allow_write=True,
@@ -209,7 +211,6 @@ with rs.Module(name="Luigi"):
         emit_detached=True)
     def detect_flavors_and_scoops(ctx: rs.ContextWrapper):
         logger.info("Entered detect flavors again with")
-
         ctx[prop_asked_order_count] = 1
         ice_cream_order = False
         tokens = ctx[nlp.prop_tokens]
@@ -400,7 +401,7 @@ with rs.Module(name="Luigi"):
                 return
 
         if not (ctx[rawio.prop_out] in verbaliser.get_phrase_list(lang.intent_greeting)):
-            ctx[rawio.prop_out] = "Could not understand you"
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("listening_error")
 
     @rs.state(cond=rs.sig_startup)
     def start_state(ctx: rs.ContextWrapper):
@@ -458,7 +459,7 @@ with rs.Module(name="Luigi"):
         signal=sig_finish_order_question,
         emit_detached=True,
         read=(prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops),
-        write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops))
+        write=(rawio.prop_out, prop_flavor_scoop_tuple_list, prop_flavors, prop_scoops, prop_order_verified))
     def check_scoops_flavor_combined(ctx: rs.ContextWrapper):
         if -1 in prop_scoops.read():
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_scoops")
@@ -473,6 +474,7 @@ with rs.Module(name="Luigi"):
             ctx[prop_scoops] = []
             possibly_complete_order, _ = get_complete_order_and_cost(prop_flavor_scoop_tuple_list.read())
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("legit_order").format(order=possibly_complete_order)
+            ctx[prop_order_verified] = True
             return rs.Emit(wipe=True)
         elif len(prop_flavors.read()) > len(prop_scoops.read()):
             current_order = [(prop_flavors.read()[i], prop_scoops.read()[i]) for i in range(0, len(prop_scoops.read()))]
@@ -498,6 +500,8 @@ with rs.Module(name="Luigi"):
                                                                                          s="s")
             return rs.Emit(wipe=True)
 
+
+
     @rs.state(
         cond=sig_finish_order_question.min_age(15).max_age(-1),
         read=prop_asked_order_count,
@@ -519,20 +523,22 @@ with rs.Module(name="Luigi"):
             ctx[prop_asked_order_count] = 1
 
     @rs.state(
-        cond=sig_finish_order_question.max_age(15).min_age(-1) & sig_yesno_detected,
-        read=(prop_flavor_scoop_tuple_list, nlp.prop_yesno),
-        write=(rawio.prop_out, prop_price),
+        cond=sig_yesno_detected,
+        read=(prop_flavor_scoop_tuple_list, nlp.prop_yesno, prop_order_verified),
+        write=(rawio.prop_out, prop_price, prop_order_verified),
         signal=sig_wait_for_cup,
         emit_detached=True)
     def analyse_finish_order_answer(ctx: rs.ContextWrapper):
-        if ctx[nlp.prop_yesno].yes():
+        if ctx[prop_order_verified] and ctx[nlp.prop_yesno].yes():
             flavor_scoop_tuple_list = ctx[prop_flavor_scoop_tuple_list]
             complete_order, complete_cost = get_complete_order_and_cost(flavor_scoop_tuple_list)
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("preparing_order").format(order=complete_order)
             ctx[prop_price] = complete_cost * 100  # price is in cents
+            ctx[prop_order_verified] = False
             return rs.Emit(wipe=True)
-        elif ctx[nlp.prop_yesno].no():
+        elif ctx[prop_order_verified] and ctx[nlp.prop_yesno].no():
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("continue_order")
+            ctx[prop_order_verified] = False
 
     @rs.state(
         cond=sig_wait_for_cup,
