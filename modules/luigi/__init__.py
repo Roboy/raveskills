@@ -621,7 +621,7 @@ with rs.Module(name="Luigi"):
             ctx[prop_asked_order_count] = 1
 
     @rs.state(
-        cond=(sig_asked_payment_method.max_age(15).min_age(-1) & sig_changed_payment_option.detached())
+        cond=(sig_asked_payment_method.max_age(75).min_age(-1) & sig_changed_payment_option.detached())
              | sig_payment_incomplete,
         read=prop_payment_option,
         write=(rawio.prop_out, prop_asked_payment_count),
@@ -639,28 +639,29 @@ with rs.Module(name="Luigi"):
     @rs.state(
         cond=sig_insert_coins_or_scan_qr,
         read=(prop_payment_option, prop_price, prop_flavor_scoop_tuple_list),
-        write=(rawio.prop_out, prop_payment_success, prop_price),
+        write=(prop_payment_success, prop_price),
         signal=sig_finished_payment,
         emit_detached=True)
     def payment_process(ctx: rs.ContextWrapper):
+        @rs.receptor(ctx_wrap=ctx, write=rawio.prop_out)
+        def say(ctx_input, value: str):
+            ctx_input[rawio.prop_out] = value
         payment_option = ctx[prop_payment_option]
         price = ctx[prop_price]
         amount_paid, error_message = payment_communication(price, payment_option, ctx[prop_flavor_scoop_tuple_list])
         if amount_paid == 0:
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("no_payment")
+            say(verbaliser.get_random_phrase("no_payment"))
         elif amount_paid < price:
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("amount_left") \
-                                  .format(amount_left_over=amount_in_euros_and_cents(price - amount_paid))
+            say(verbaliser.get_random_phrase("amount_left").format(amount_left_over=amount_in_euros_and_cents(price - amount_paid)))
             ctx[prop_price] = price - amount_paid
         elif amount_paid == price:
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("perfect_amount")
+            say(verbaliser.get_random_phrase("perfect_amount"))
             ctx[prop_payment_success] = True
         elif amount_paid > price:
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("better_amount")\
-                .format(amount_too_much=amount_in_euros_and_cents(amount_paid - price))
+            say(verbaliser.get_random_phrase("better_amount").format(amount_too_much=amount_in_euros_and_cents(amount_paid - price)))
             ctx[prop_payment_success] = True
         elif error_message:
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_payment")
+            say(verbaliser.get_random_phrase("error_payment"))
         return rs.Emit(wipe=True)
 
     @rs.state(
