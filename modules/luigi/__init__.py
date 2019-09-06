@@ -220,20 +220,15 @@ with rs.Module(name="Luigi"):
         if len(tokens) == 1 and FLAVORS & set(tokens):
             # this case holds when customer orders ice creams using just the flavor name
             ice_cream_order = True
-        elif extract_scoops(ner) and triples[0].match_either_lemma(pred=SCOOP_SYNONYMS):
+        elif extract_scoops(ner, tokens) and triples[0].match_either_lemma(pred=SCOOP_SYNONYMS):
             # this case holds when the customer states the number of scoops using
             # "three scoops please"
             # "2 servings of chocolate"
             ice_cream_order = True
-        elif extract_scoops(ner) and triples[0].match_either_lemma(pred={"each"}):
+        elif extract_scoops(ner, tokens) and triples[0].match_either_lemma(pred={"each"}):
             # this case holds when the customer states the number of scoops as follows
             # "one each"
             ice_cream_order = True
-        # elif triples[0].match_either_lemma(subj={"i"}) and \
-        #         triples[0].match_either_lemma(pred=DESIRE_SYNONYMS) and \
-        #         triples[0].match_either_lemma(obj=FLAVORS) and \
-        #         not NEGATION_SYNONYMS & set(lemmas):
-
         elif triples[0].match_either_lemma(pred=DESIRE_SYNONYMS) and \
                 triples[0].match_either_lemma(obj=FLAVORS) and \
                 not NEGATION_SYNONYMS & set(lemmas):
@@ -255,7 +250,7 @@ with rs.Module(name="Luigi"):
             # "no chocolate ice cream please"
             # "it is definitely not vanilla"
             ice_cream_order = True
-        elif extract_scoops(ner) and not NEGATION_SYNONYMS & set(lemmas):
+        elif extract_scoops(ner, tokens) and not NEGATION_SYNONYMS & set(lemmas):
             # this case holds when the order is phrased in a simple way like
             # "two please"
             # "three"
@@ -273,23 +268,29 @@ with rs.Module(name="Luigi"):
             # "chocolate would be good"
             # again negations are ignored
             ice_cream_order = True
-        elif DESIRE_SYNONYMS & set(tokens) and FLAVORS & set(tokens) and not NEGATION_SYNONYMS  & set(lemmas):
+        elif DESIRE_SYNONYMS & set(tokens) and FLAVORS & set(tokens) and not NEGATION_SYNONYMS & set(lemmas):
             # I think I want to have two scoops of vanilla
             ice_cream_order = True
-        elif DESCRIPTOR_SYNONYMS & set(tokens) and not NEGATION_SYNONYMS  & set(lemmas) and (FLAVORS & set(tokens) or SCOOP_SYNONYMS & set(tokens)):
+        elif DESCRIPTOR_SYNONYMS & set(tokens) and not NEGATION_SYNONYMS & set(lemmas) and \
+                (FLAVORS & set(tokens) or SCOOP_SYNONYMS & set(tokens)):
             # i think two scoops of vanilla sounds good
             # what an amazing day to have 3 scoops of ice cream
             # 2 vanilla sounds good
             ice_cream_order = True
-        elif IMPERATIVE_SYNOYNMS & set(tokens) and not NEGATION_SYNONYMS  & set(lemmas) and (FLAVORS & set(tokens) or SCOOP_SYNONYMS & set(tokens)):
+        elif IMPERATIVE_SYNOYNMS & set(tokens) and not NEGATION_SYNONYMS & set(lemmas) and \
+                (FLAVORS & set(tokens) or SCOOP_SYNONYMS & set(tokens)):
             # give me three
             # serve me chocolate
             # can you give me four vanilla
             ice_cream_order = True
+        elif (SCOOP_SYNONYMS & set(tokens) or FLAVOR_SYNONYMS & set(tokens)) and not NEGATION_SYNONYMS & set(lemmas):
+            ice_cream_order = True
 
         if ice_cream_order:
             flavors = extract_flavors(tokens)
-            scoops = extract_scoops(ner)
+            scoops = extract_scoops(ner, tokens)
+            print("flavors: ", flavors)
+            print("scoops: ", scoops)
             if "each" in tokens and len(scoops) == 1:
                 scoops *= len(flavors)
             if flavors:
@@ -756,8 +757,10 @@ def extract_flavors(prop_tokens):
     return flavors
 
 
-def extract_scoops(prop_ner):
+def extract_scoops(prop_ner, prop_tokens):
     scoops = []
+    if not prop_ner and ("one" in prop_tokens or "1" in prop_tokens):
+        scoops += [1]
     for entity, NE in prop_ner:
         if NE == "CARDINAL" and entity.isdigit():
             if 0 < int(entity) < 10:
