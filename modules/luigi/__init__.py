@@ -400,7 +400,7 @@ with rs.Module(name="Luigi"):
                 return
 
         if not (ctx[rawio.prop_out] in verbaliser.get_phrase_list(lang.intent_greeting)):
-            ctx[rawio.prop_out] = "Could not understand you"
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_understanding")
 
     @rs.state(cond=rs.sig_startup)
     def start_state(ctx: rs.ContextWrapper):

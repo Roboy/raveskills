@@ -18,3 +18,14 @@ opts:
 - "whoever told me to drive here via telegram, please come up to the front"
 - "who had dared to call me via telegram so i could serve delicious ice cream?"
 - "whoever requested my presence on telegram, please come closer to start ordering"
+---
+type: phrases
+name: "error_understanding"
+opts:
+- "i did not understand that"
+- "cool story bro tell it again"
+- "sorry i didn't get that"
+- "you are talking weird stuff"
+- "that was some strange word i don't know"
+- "human language is so hard to understand"
+- "whatever dude"
