@@ -426,6 +426,12 @@ with rs.Module(name="Luigi"):
     # -------------------- states: conversation flow -------------------- #
 
     @rs.state(
+        cond=sig_ice_cream_desire,
+        write=rawio.prop_out)
+    def react_to_ice_cream_desire(ctx: rs.ContextWrapper):
+        ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("greet_general")
+
+    @rs.state(
         cond=sig_wait_for_telegram_customer_to_come_close,
         write=rawio.prop_out)
     def wait_for_telegram_customer(ctx: rs.ContextWrapper):
@@ -764,7 +770,7 @@ def extract_flavors(prop_tokens):
 
 def extract_scoops(prop_ner, prop_tokens):
     scoops = []
-    if prop_tokens.index("a") + 1 == prop_tokens.index("scoop"):
+    if "a" in prop_tokens and "scoop" in prop_tokens and prop_tokens.index("a") + 1 == prop_tokens.index("scoop"):
         scoops += [1]
     if not prop_ner and ("one" in prop_tokens or "1" in prop_tokens):
         scoops += [1]
