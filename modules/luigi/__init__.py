@@ -36,7 +36,7 @@ POLITE_SYNONYMS = {"please", "bitte"}
 NEGATION_SYNONYMS = {"no", "not"}
 ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
 PAYMENT_OPTION_SYNONYMS = {"paypal", "cash", "coins", "coin", "money"}
-PAY_SYNONYMS = {"pay", "want pay", "pay will", "pay can", "pay could", "use will", "like pay"}
+PAY_SYNONYMS = {"pay", "want pay", "pay will", "pay can", "pay could", "use will", "like pay", "go"}
 
 cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
 
@@ -556,7 +556,7 @@ with rs.Module(name="Luigi"):
         signal=sig_loop_feedback,
         emit_detached=True)
     def feedback_state(ctx: rs.ContextWrapper):
-        if ROS_AVAILABLE and (client.get_result() is not None) \
+        if ROS_AVAILABLE and client.gh and (client.get_result() is not None) \
                 or (not ROS_AVAILABLE and scooping_communication.stop_feedback):
             return rs.Emit(wipe=True)
         if ROS_AVAILABLE and scooping_communication.feedback is not None:
@@ -580,10 +580,10 @@ with rs.Module(name="Luigi"):
         signal=sig_start_payment,
         emit_detached=True)
     def after_scooping(ctx: rs.ContextWrapper):
-        if (ROS_AVAILABLE and client.get_result() is None) \
+        if (ROS_AVAILABLE and client.gh and client.get_result() is None) \
                 or (not ROS_AVAILABLE and not scooping_communication.stop_feedback):
             return rs.Resign()
-        if ROS_AVAILABLE and client.get_result() is not None and not client.get_result().success:
+        if ROS_AVAILABLE and client.gh and client.get_result() is not None and not client.get_result().success:
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop convo? output result.error?
         else:
             return rs.Emit(wipe=True)
