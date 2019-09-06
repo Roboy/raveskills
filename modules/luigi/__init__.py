@@ -283,7 +283,7 @@ with rs.Module(name="Luigi"):
             # serve me chocolate
             # can you give me four vanilla
             ice_cream_order = True
-        elif SCOOP_SYNONYMS & set(tokens) or FLAVOR_SYNONYMS & set(tokens):
+        elif (SCOOP_SYNONYMS & set(tokens) or FLAVOR_SYNONYMS & set(tokens)) and not NEGATION_SYNONYMS & set(lemmas):
             ice_cream_order = True
 
         if ice_cream_order:
