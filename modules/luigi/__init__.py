@@ -360,11 +360,13 @@ with rs.Module(name="Luigi"):
         ctx[prop_payment_option_detection] = DetectionStates.OUT
 
     @rs.state(
-        read=nlp.prop_yesno,
+        read=(nlp.prop_yesno, nlp.prop_lemmas),
         write=prop_yesno_detection,
         signal=sig_yesno_detected)
     def yesno_detection(ctx: rs.ContextWrapper):
-        if ctx[nlp.prop_yesno].yes() or ctx[nlp.prop_yesno].no():
+        if (ctx[nlp.prop_yesno].yes() or ctx[nlp.prop_yesno].no()) \
+                and not (FLAVORS & set(ctx[nlp.prop_lemmas]) or SCOOP_SYNONYMS & set(ctx[nlp.prop_lemmas])):
+                # fix for "yes, i want two scoops of chocolate" going directly into preparing phase
             ctx[prop_yesno_detection] = True
             ctx[prop_yesno_detection] = DetectionStates.IN
             return rs.Emit(wipe=True)
@@ -424,7 +426,7 @@ with rs.Module(name="Luigi"):
         cond=sig_wait_for_telegram_customer_to_come_close,
         write=rawio.prop_out)
     def wait_for_telegram_customer(ctx: rs.ContextWrapper):
-        time.sleep(0)   # TODO adjust to how much time Roboy should give a Telegram customer to come up
+        time.sleep(3)   # TODO adjust to how much time Roboy should give a Telegram customer to come up
         ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("greet_general")
 
     @rs.state(
@@ -601,7 +603,7 @@ with rs.Module(name="Luigi"):
         return rs.Emit(wipe=True)
 
     @rs.state(
-        cond=sig_asked_payment_method.min_age(15),
+        cond=sig_asked_payment_method.min_age(75),
         read=prop_asked_payment_count,
         write=(prop_asked_payment_count, prop_asked_order_count, prop_flavor_scoop_tuple_list, prop_flavors,
                prop_scoops, prop_suggested_ice_cream, rawio.prop_out),

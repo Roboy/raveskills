@@ -12,12 +12,12 @@ opts:
 type: phrases
 name: "telegram_arrival"
 opts:
-- "who here wanted ice cream?"
-- "so who here had been so brave to call me via telegram?"
-- "well well well no who talked to me over telegram?"
-- "whoever told me to drive here via telegram, please come up to the front"
-- "who had dared to call me via telegram so i could serve delicious ice cream?"
-- "whoever requested my presence on telegram, please come closer to start ordering"
+- "who here wanted ice cream? come closer"
+- "will the real slim shady please stand up"
+- "whoever was so brave to call me via telegram please come closer"
+- "well well well face me whoever called me over telegram"
+- "whoever told me to drive here via telegram please come up to the front"
+- "whoever requested my presence on telegram please come closer to start ordering"
 ---
 type: phrases
 name: "error_understanding"
