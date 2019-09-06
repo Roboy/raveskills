@@ -351,6 +351,9 @@ with rs.Module(name="Luigi"):
             # this case holds when customer answers the payment question using phrases like
             # "let me pay with cash please"
             detected_payment_option = True
+        elif triples[0].match_either_lemma(obj=PAYMENT_OPTION_SYNONYMS) and \
+                not NEGATION_SYNONYMS & set(lemmas):
+            detected_payment_option = True
 
         if detected_payment_option:
             logger.info("Exiting payment detection")
