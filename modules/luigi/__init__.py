@@ -764,6 +764,8 @@ def extract_flavors(prop_tokens):
 
 def extract_scoops(prop_ner, prop_tokens):
     scoops = []
+    if prop_tokens.index("a") + 1 == prop_tokens.index("scoop"):
+        scoops += [1]
     if not prop_ner and ("one" in prop_tokens or "1" in prop_tokens):
         scoops += [1]
     for entity, NE in prop_ner:
