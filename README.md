@@ -117,3 +117,6 @@ source ~/ros2_ws/install/setup.sh
 source ~/ros1_bridge_ws/install/setup.sh
 ros2 run ros1_bridge dynamic_bridge
 ```
+
+### UML Diagram for Interfaces
+![alt text](luigi_interfaces.png)
