@@ -2,7 +2,9 @@
 [![codecov](https://codecov.io/gh/Roboy/raveskills/branch/master/graph/badge.svg)](https://codecov.io/gh/Roboy/raveskills)
 
 # raveskills
-Roboy skills developed using the ravestate framework
+Roboy skills developed using the ravestate framework.
+
+There exist the ice cream selling skill called [Luigi](/modules/luigi) and the skill to order ice cream via Telegram in the [Driving](/modules/driving) module. Both modules include READMEs with information on further usage.
 
 ## Setup
 
@@ -117,6 +119,3 @@ source ~/ros2_ws/install/setup.sh
 source ~/ros1_bridge_ws/install/setup.sh
 ros2 run ros1_bridge dynamic_bridge
 ```
-
-### UML Diagram for Interfaces
-![alt text](luigi_interfaces.png)
