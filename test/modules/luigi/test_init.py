@@ -1,10 +1,8 @@
 import ravestate as rs
 import ravestate_interloc as interloc
 import ravestate_rawio as rawio
-import ravestate_idle as idle
 import ravestate_ontology
 import ravestate_verbaliser as verbaliser
-import ravestate_nlp as nlp
 import luigi
 
 from reggol import get_logger, set_default_loglevel
@@ -55,6 +53,9 @@ def test_decline_offer():
 
     assert luigi_hi.wait()
 
+    # Wait for greeting
+    while not raw_out.wait(.1):
+        ctx.run_once()
     # Wait for greeting
     while not raw_out.wait(.1):
         ctx.run_once()
@@ -118,6 +119,8 @@ def test_legit_order():
     assert luigi_hi.wait()
 
     # Wait for greeting
+    while not raw_out.wait(.1):
+        ctx.run_once()
     while not raw_out.wait(.1):
         ctx.run_once()
     assert last_output in verbaliser.get_question_list("greet_general")
@@ -195,6 +198,8 @@ def test_need_scoop():
     assert luigi_hi.wait()
 
     # Wait for greeting
+    while not raw_out.wait(.1):
+        ctx.run_once()
     while not raw_out.wait(.1):
         ctx.run_once()
     assert last_output in verbaliser.get_question_list("greet_general")
@@ -288,6 +293,8 @@ def test_need_flavor():
     # Wait for greeting
     while not raw_out.wait(.1):
         ctx.run_once()
+    while not raw_out.wait(.1):
+        ctx.run_once()
     assert last_output in verbaliser.get_question_list("greet_general")
 
     say("yes")
@@ -377,6 +384,8 @@ def test_legit_order_need_flavor():
     assert luigi_hi.wait()
 
     # Wait for greeting
+    while not raw_out.wait(.1):
+        ctx.run_once()
     while not raw_out.wait(.1):
         ctx.run_once()
     assert last_output in verbaliser.get_question_list("greet_general")

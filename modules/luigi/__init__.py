@@ -7,7 +7,7 @@ import ravestate_phrases_basic_en as lang
 import numpy as np
 import time
 from os.path import realpath, dirname, join
-from ravestate_verbaliser import verbaliser, prop_intent
+from ravestate_verbaliser import verbaliser
 from enum import IntEnum
 from reggol import get_logger
 
@@ -38,7 +38,7 @@ ICE_CREAM_SYNONYMS = {"icecream", "ice", "cream", "gelato", "sorbet"}
 PAYMENT_OPTION_SYNONYMS = {"paypal", "cash", "coins", "coin", "money"}
 PAY_SYNONYMS = {"pay", "want pay", "pay will", "pay can", "pay could", "use will", "like pay", "go"}
 
-cost_per_scoop = 1  # TODO move to external config file that also lists the available flavors and payment options
+cost_per_scoop = 1  # Adjust for other prices
 
 
 class PaymentOptions(IntEnum):
@@ -105,7 +105,6 @@ with rs.Module(name="Luigi"):
     sig_yesno_detected = rs.Signal("yesno")
     sig_changed_flavor_or_scoops = rs.Signal("changed_flavor_or_scoops")
     sig_changed_payment_option = rs.Signal("changed_payment_option")
-    sig_has_arrived = rs.Signal("has_arrived")  # TODO ad team should send this once Roboy has arrived
     sig_ice_cream_desire = rs.Signal("ice_cream_desire")
     sig_suggested_ice_cream = rs.Signal("suggested_ice_cream")
     sig_insert_coins_or_scan_qr = rs.Signal("insert_coins_or_scan_qr")
@@ -172,7 +171,7 @@ with rs.Module(name="Luigi"):
             try:
                 payment = rospy.ServiceProxy('payment', Payment)
                 response = payment(np.uint16(price), np.uint8(payment_option), flavors, scoops)
-                return response.amount_paid, response.error_message  # TODO response.customer_name can be used for stuff
+                return response.amount_paid, response.error_message  # response.customer_name may also be used
             except rospy.ROSInterruptException as e:
                 logger.error('Service call failed:', e)
         else:
@@ -289,8 +288,6 @@ with rs.Module(name="Luigi"):
         if ice_cream_order:
             flavors = extract_flavors(tokens)
             scoops = extract_scoops(ner, tokens)
-            print("flavors: ", flavors)
-            print("scoops: ", scoops)
             if "each" in tokens and len(scoops) == 1:
                 scoops *= len(flavors)
             if flavors:
@@ -369,25 +366,19 @@ with rs.Module(name="Luigi"):
     def yesno_detection(ctx: rs.ContextWrapper):
         if (ctx[nlp.prop_yesno].yes() or ctx[nlp.prop_yesno].no()) \
                 and not (FLAVORS & set(ctx[nlp.prop_lemmas]) or SCOOP_SYNONYMS & set(ctx[nlp.prop_lemmas])):
-                # this is the fix for "yes, i want two scoops of chocolate" going directly into preparing phase
+                # this is needed for a phrase like  "yes, i want two scoops of chocolate" to not go directly into preparing phase
             ctx[prop_yesno_detection] = True
             ctx[prop_yesno_detection] = DetectionStates.IN
             return rs.Emit(wipe=True)
         ctx[prop_yesno_detection] = DetectionStates.OUT
 
     @rs.state(
-        cond=(
-            prop_yesno_detection.changed() and prop_payment_option_detection.changed() and
-            prop_ice_cream_desire_detection.changed() and prop_flavors_and_scoops_detection.changed()
-        ),
-        read=(
-            prop_yesno_detection, prop_payment_option_detection, prop_ice_cream_desire_detection,
-            prop_flavors_and_scoops_detection, rawio.prop_out
-        ),
-        write=(
-            prop_yesno_detection, prop_payment_option_detection, prop_ice_cream_desire_detection,
-            prop_flavors_and_scoops_detection, rawio.prop_out
-        ))
+        cond=(prop_yesno_detection.changed() and prop_payment_option_detection.changed() and
+              prop_ice_cream_desire_detection.changed() and prop_flavors_and_scoops_detection.changed()),
+        read=(prop_yesno_detection, prop_payment_option_detection, prop_ice_cream_desire_detection,
+              prop_flavors_and_scoops_detection, rawio.prop_out),
+        write=(prop_yesno_detection, prop_payment_option_detection, prop_ice_cream_desire_detection,
+               prop_flavors_and_scoops_detection, rawio.prop_out))
     def detections_understood(ctx: rs.ContextWrapper):
         detections = [
             ctx[prop_yesno_detection],
@@ -395,16 +386,13 @@ with rs.Module(name="Luigi"):
             ctx[prop_ice_cream_desire_detection],
             ctx[prop_flavors_and_scoops_detection]
         ]
-
         ctx[prop_yesno_detection] = DetectionStates.NOT_SET
         ctx[prop_payment_option_detection] = DetectionStates.NOT_SET
         ctx[prop_ice_cream_desire_detection] = DetectionStates.NOT_SET
         ctx[prop_flavors_and_scoops_detection] = DetectionStates.NOT_SET
-
         for detection in detections:
             if detection == DetectionStates.IN:
                 return
-
         if not (ctx[rawio.prop_out] in verbaliser.get_phrase_list(lang.intent_greeting)):
             ctx[rawio.prop_out] = verbaliser.get_random_phrase("error_understanding")
 
@@ -412,17 +400,15 @@ with rs.Module(name="Luigi"):
     def start_state(ctx: rs.ContextWrapper):
         if ROS_AVAILABLE:
             rospy.set_param('roboy_is_busy', False)
-            print("START_STATE:" + str(rospy.get_param('roboy_is_busy')))
 
     @rs.state(
         cond=interloc.prop_all.pushed() | interloc.prop_all.popped(),
         read=interloc.prop_all)
     def is_busy(ctx: rs.ContextWrapper):
         busy = True if any(ctx.enum(interloc.prop_all)) else False
-        # TODO Set this as param if you want to use it inside ws_comm, otherwise you can just assign a variable
+        # Set this as param if you want to use it inside ws_comm, otherwise you can just assign a variable
         if ROS_AVAILABLE:
             rospy.set_param('roboy_is_busy', busy)
-        print("IS_BUSY:" + str(busy))
 
     # -------------------- states: conversation flow -------------------- #
 
@@ -436,7 +422,7 @@ with rs.Module(name="Luigi"):
         cond=sig_wait_for_telegram_customer_to_come_close,
         write=rawio.prop_out)
     def wait_for_telegram_customer(ctx: rs.ContextWrapper):
-        time.sleep(3)   # TODO adjust to how much time Roboy should give a Telegram customer to come up
+        time.sleep(3)   # Adjust to how much time Roboy should give a Telegram customer to come up
         ctx[rawio.prop_out] = verbaliser.get_random_successful_answer("greet_general")
 
     @rs.state(
@@ -551,7 +537,7 @@ with rs.Module(name="Luigi"):
         cond=sig_wait_for_cup,
         signal=sig_send_to_scooping)
     def while_customer_places_cup(ctx: rs.ContextWrapper):
-        time.sleep(0)   # TODO adjust however long a customer should have to place the cup
+        time.sleep(0)   # Adjust however long a customer should have to place the cup
         return rs.Emit()
 
     @rs.state(
@@ -596,7 +582,7 @@ with rs.Module(name="Luigi"):
                 or (not ROS_AVAILABLE and not scooping_communication.stop_feedback):
             return rs.Resign()
         if ROS_AVAILABLE and client.gh and client.get_result() is not None and not client.get_result().success:
-            ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")  # TODO stop convo? output result.error?
+            ctx[rawio.prop_out] = verbaliser.get_random_phrase("unexpected")
         else:
             return rs.Emit(wipe=True)
 
