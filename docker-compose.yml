@@ -2,8 +2,8 @@ version: '2.1'
 
 services:
   raveskills:
-    image: raveskills-ros2-image
-    container_name: raveskills-ros2-container
+    image: raveskills
+    container_name: raveskills
     build:
       context: .
       dockerfile: Dockerfile
@@ -12,12 +12,17 @@ services:
       - .:/raveskills
       - ../ravestate:/ravestate
       #- /home/roboy/ros2_speech_recognition:/ros2_speech_recognition
-    #devices:
+      #    devices:
+      # - /dev/video0:/dev/video0
+      # - /dev/video1:/dev/video1
+      # - /dev/video2:/dev/video2
+      # - /dev/video3:/dev/video3
     #  - /dev/snd:/dev/snd
     ports:
       - "10002:10002"
       - "9000:9000"
       - "9001:9001"
+      - "8088:8088"
     environment:
       - PYTHONPATH=$PYTHONPATH:/raveskills/modules:/ravestate/modules:/root/melodic_ws/src/roboy_communication
       - PYTHONUNBUFFERED=1

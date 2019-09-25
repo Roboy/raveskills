@@ -1,0 +1,31 @@
+type: phrases
+name: "luigi_farewell"
+opts:
+- "please pick up your ice cream - enjoy and come back anytime you like!"
+- "thanks for buying ice cream - please pick it up and enjoy!"
+- "don't forget to take your ice cream with you! hope to see you again!"
+- "please pick up your ice cream, i hope you are satisfied with this experience!"
+- "you can pick up your ice cream now. thanks for dropping by and remember there is always time for ice cream!"
+- "thanks for picking up your ice cream! what a journey it was!"
+- "don't forget to take your ice cream with you. see you soon!"
+---
+type: phrases
+name: "telegram_arrival"
+opts:
+- "who here wanted ice cream? come closer"
+- "will the real slim shady please stand up"
+- "whoever was so brave to call me via telegram please come closer"
+- "well well well face me whoever called me over telegram"
+- "whoever told me to drive here via telegram please come up to the front"
+- "whoever requested my presence on telegram please come closer to start ordering"
+---
+type: phrases
+name: "error_understanding"
+opts:
+- "i did not understand that"
+- "cool story bro tell it again"
+- "sorry i didn't get that"
+- "you are talking weird stuff"
+- "that was some strange word i don't know"
+- "human language is so hard to understand"
+- "whatever dude"

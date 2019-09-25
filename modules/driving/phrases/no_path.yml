@@ -1,0 +1,8 @@
+type: phrases
+name: "no_path"
+opts:
+- "sorry its not possible to meet you, i cannot drive to your location, maybe we can meet somewhere else?"
+- "i am sorry but i cannot reach that destination, do you have a different spot for me?"
+- "i am not able to reach your location, no ice cream for you i guess unless you tell a different meeting place"
+- "ship is not ready for sail because i couldn't find a path to reach you. could you provide me a different location?"
+- "show is yet to start, because i can't get to your location. could you tell me a different place to meet?"

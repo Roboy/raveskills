@@ -8,7 +8,7 @@ class ScoopingActionServer:
 
     def __init__(self):
         self.a_server = actionlib.SimpleActionServer(
-            "scooping_as", OrderIceCreamAction, execute_cb=self.execute_cb, auto_start=False)
+            "luigi_scoop", OrderIceCreamAction, execute_cb=self.execute_cb, auto_start=False)
         self.a_server.start()
 
     def execute_cb(self, goal):
@@ -16,15 +16,18 @@ class ScoopingActionServer:
         success = True
         feedback = OrderIceCreamFeedback()
         rate = rospy.Rate(1)
-        finished_flavors = [False for i in range(0, len(goal.flavors))]
+        finished_scoops = [False for _ in range(0, sum(goal.scoops))]
 
-        for i in range(0, len(goal.flavors)):
+        print("published feedback")
+        for i in range(0, sum(goal.scoops)):
             if self.a_server.is_preempt_requested():
                 self.a_server.set_preempted()
                 success = False
                 break
-            finished_flavors[i] = True
-            feedback.finished_flavors = finished_flavors
+            finished_scoops[i] = True
+            feedback.finished_scoops = finished_scoops
+            feedback.status_message = "more time" if i == 1 else "test status message"
+            print("feedback at time {} is {} and {}".format(i, feedback.finished_scoops, feedback.status_message))
             self.a_server.publish_feedback(feedback)
             rate.sleep()
             time.sleep(1)   # it takes some time to prepare ice cream
