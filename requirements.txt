@@ -1,2 +1,2 @@
-ravestate>=0.6.0
+ravestate>=0.7.0rc0
 numpy>=1.13
