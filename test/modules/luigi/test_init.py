@@ -54,26 +54,20 @@ def test_decline_offer():
     assert luigi_hi.wait()
 
     # Wait for greeting
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     # Wait for greeting
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert last_output in verbaliser.get_question_list("greet_general")
 
     say("no")
 
     # Wait for acknowledgement of answer
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert last_output in verbaliser.get_failure_answer_list("greet_general")
 
@@ -128,25 +122,19 @@ def test_legit_order():
     assert luigi_hi.wait()
 
     # Wait for greeting
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert last_output in verbaliser.get_question_list("greet_general")
 
     say("yes")
 
     # Wait for acknowledgement of answer
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert luigi.analyse_ice_cream_suggestion_answer.wait()
     assert last_output in verbaliser.get_successful_answer_list("greet_general")
@@ -154,10 +142,8 @@ def test_legit_order():
     say("three scoops of vanilla")
 
     # Wait for acknowledgement of answer
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
     assert last_output.replace("3 scoops of vanillla", "{order}") in verbaliser.get_phrase_list("legit_order")
@@ -219,25 +205,19 @@ def test_need_scoop():
     assert luigi_hi.wait()
 
     # Wait for greeting
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert last_output in verbaliser.get_question_list("greet_general")
 
     say("yes")
 
     # Wait for acknowledgement of answer
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert luigi.analyse_ice_cream_suggestion_answer.wait()
     assert last_output in verbaliser.get_successful_answer_list("greet_general")
@@ -247,10 +227,8 @@ def test_need_scoop():
     say("I want vanilla please")
 
     # Wait for acknowledgement of flavor
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
     assert luigi.check_scoops_flavor_combined.wait()
@@ -261,10 +239,8 @@ def test_need_scoop():
     say("three")
 
     # Wait for acknowledgement of scoop
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
     assert luigi.check_scoops_flavor_combined.wait()
@@ -276,10 +252,8 @@ def test_need_scoop():
     say("yes")
 
     # Wait for acknowledgement of answer
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
 
     ctx.emit(rs.sig_shutdown)
@@ -330,25 +304,19 @@ def test_need_flavor():
     assert luigi_hi.wait()
 
     # Wait for greeting
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert last_output in verbaliser.get_question_list("greet_general")
 
     say("yes")
 
     # Wait for acknowledgement of answer
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert luigi.analyse_ice_cream_suggestion_answer.wait()
     assert last_output in verbaliser.get_successful_answer_list("greet_general")
@@ -358,10 +326,8 @@ def test_need_flavor():
     say("four")
 
     # Wait for acknowledgement of flavor
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
     assert luigi.check_scoops_flavor_combined.wait()
@@ -372,10 +338,8 @@ def test_need_flavor():
     say("chocolate")
 
     # Wait for acknowledgement of scoop
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
     assert luigi.check_scoops_flavor_combined.wait()
@@ -387,10 +351,8 @@ def test_need_flavor():
     say("yes")
 
     # Wait for acknowledgement of answer
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
 
     ctx.emit(rs.sig_shutdown)
@@ -441,15 +403,11 @@ def test_legit_order_need_flavor():
     assert luigi_hi.wait()
 
     # Wait for greeting
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert last_output in verbaliser.get_question_list("greet_general")
 
@@ -458,10 +416,8 @@ def test_legit_order_need_flavor():
     say("chocolate two")
 
     # Wait for acknowledgement of order
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
 
     assert luigi.detect_flavors_and_scoops.wait()
@@ -471,10 +427,8 @@ def test_legit_order_need_flavor():
     say("no")
 
     # Wait for acknowledgement of answer
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert luigi.analyse_finish_order_answer.wait()
     assert last_output in verbaliser.get_phrase_list("continue_order")
@@ -483,10 +437,8 @@ def test_legit_order_need_flavor():
     say("one")
 
     # Wait for acknowledgement of flavor
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
     assert last_output.replace("scoop", "scoop{s}").replace("1", "{scoop}") in verbaliser.get_phrase_list("need_flavor")
@@ -496,10 +448,8 @@ def test_legit_order_need_flavor():
     say("vanilla")
 
     # Wait for acknowledgement of scoop
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
     assert luigi.detect_flavors_and_scoops.wait()
     assert luigi.check_scoops_flavor_combined.wait()
@@ -511,10 +461,8 @@ def test_legit_order_need_flavor():
     say("yes")
 
     # Wait for acknowledgement of answer
-    count = 0
+
     while not raw_out.wait(.1):
-        if count > 100:
-            assert False
         ctx.run_once()
 
     ctx.emit(rs.sig_shutdown)
